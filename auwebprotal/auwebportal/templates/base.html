@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{% block title %}{% endblock %} | AU Web Portal API</title>
+    {% block head %}
+      <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
+      <script type=text/javascript src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+      <style type="text/css">
+        .breadcrumb {
+            background-color: transparent;
+        }
+        p{
+            font-size: 1.3em;
+        }
+      </style>
+    {% endblock %}
+  </head>
+  <body>
+    <div class="container">
+       <div class="page-header">
+         <h1 class="text-center">AU Web Portal API</h1>
+       </div>
+      {% set breadcrumb = [
+        ('/', 'home', 'Home'),
+        ('/test/', 'test', 'Test'),
+      ]-%}
+      {% set active_page = active_page|default('index') -%}
+      <ul class="breadcrumb">
+        {% for href, id, caption in breadcrumb %}
+          {% if id == active_page %}
+              <li class="active">{{ caption }}</li>
+          {% elif active_page != 'home' %}
+                <li><a href="{{ href }}">{{ caption }}</a></li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+      {% block content %}
+      {% endblock %}
+    </div>
+  <script type=text/javascript src="{{ url_for('static', filename='js/bootstrap.js') }}"></script>
+  </body>
+</html>

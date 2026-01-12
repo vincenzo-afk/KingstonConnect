@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% set active_page = "test" %}
+{% block title %}
+    Test Endpoint{{ super() }}
+{% endblock %}
+{%  block head %}
+    {{ super() }}
+    <style type="text/css">
+        .error {
+            color: red;
+        }
+        textarea {
+            margin-bottom: 2em;
+            font-size: 0.9em !important;
+        }
+    p.well {
+        font-size: 1em;
+    }
+    #ajax-loader {
+        position: absolute;
+        top: 32%;
+        left: 40%;
+        height: 75px;
+        width: 75px;
+    }
+    p.well {
+        font-weight: 600;
+    }
+    </style>
+{% endblock %}
+{% block content %}
+    <div class="row clearfix">
+        <div class="col-md-6">
+            <div>
+                <p>GET : </p>
+                <p class="well">http://auwebportal-savsr.rhcloud.com/get/?<span>register_no=<i>rno</i>&dob=<i>dob</i></span></p>
+            </div>
+            <form action="" method="post" name="input_form" class="form-horizontal">
+                {{ form.hidden_tag() }}
+                <div {% if form.register_no.errors %} class="form-group has-error" {% else %} class="form-group" {% endif %}>
+                    {{ form.register_no.label(class='col-sm-4 control-label') }}
+                    <div class="col-sm-8">
+                        {{ form.register_no(size=30, class='form-control', placeholder='Register Number') }}
+                        {% for error in form.register_no.errors %}
+                        <span class="error">{{ error }}</span>
+                    {% endfor %}
+                    </div>
+                </div>
+                <div {% if form.dob.errors %} class="form-group has-error" {% else %} class="form-group" {% endif %}>
+                    {{ form.dob.label(class='col-sm-4 control-label') }}
+                    <div class="col-sm-8">
+                        {{ form.dob(size=30, class='form-control', placeholder='Date of Birth') }}
+                        {% for error in form.dob.errors %}
+                            <span class="error">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-2 col-sm-offset-5">
+                        <button id="submit" type="submit"class="btn btn-primary btn-md">Test</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-6">
+            <textarea id="json_response" cols="50" rows="15" class="form-control" readonly>{{ data }}</textarea>
+            <img id="ajax-loader" src="{{ url_for('static', filename='images/ajax-loader.gif') }}" hidden="hidden"/>
+        </div>
+    </div>
+    {% if valid %}
+        <script type="text/javascript">
+            var url = '/get/?register_no=' + $('#register_no').val() + '&dob=' + $('#dob').val();
+            $('#ajax-loader').show();
+            $.getJSON(url, function (json) {
+                $('#ajax-loader').hide();
+                $('#json_response').text(JSON.stringify(json, null, 4));
+            });
+        </script>
+    {% endif %}
+{% endblock %}

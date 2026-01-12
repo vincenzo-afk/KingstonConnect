@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% set active_page = "home" %}
+{% block title %}
+    A Python API Using Flask Microframework{{ super() }}
+{% endblock %}
+{% block head %}
+    {{ super() }}
+{% endblock %}
+{% block content %}
+    <div class="row clearfix">
+        <div class="col-md-10 col-md-offset-1">
+          <p>A Python API using Flask microframework, to retrieve student details from Anna University web portal in JSON fromat. All you have to do is, to send a GET request to our endpoint, the Register Number and the Date of Birth of the student.</p>
+        </div>
+    </div>
+    <div class="row clearfix" style="margin-top: 2em;">
+        <a href="/test" class="btn btn-primary btn-lg col-md-offset-4">Test API</a>
+        <a href="https://github.com/arunvelsriram/auwebportal" target="_blank" class="btn btn-primary btn-lg col-md-offset-1">GitHub</a>
+    </div>
+{% endblock %}
