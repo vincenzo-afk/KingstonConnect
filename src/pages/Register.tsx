@@ -92,8 +92,8 @@ const RegisterPage: React.FC = () => {
             <Card className="relative z-10 w-full max-w-2xl bg-[#131b24]/80 backdrop-blur-xl border-white/10">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center text-white font-bold text-3xl mx-auto mb-4 shadow-lg shadow-cyan-500/30">
-                        K
+                    <div className="w-24 h-24 mx-auto mb-6">
+                        <img src="/logo.png" alt="KingstonConnect Logo" className="w-full h-full object-contain drop-shadow-2xl" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
                     <p className="text-slate-400">Join KingstonConnect</p>

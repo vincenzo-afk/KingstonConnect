@@ -71,8 +71,8 @@ const AUPortalPage: React.FC = () => {
             <Card className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/20">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 shadow-lg shadow-cyan-500/25">
-                            <ExternalLink className="w-8 h-8 text-white" />
+                        <div className="w-16 h-16">
+                            <img src="/logo.png" alt="AU Logo" className="w-full h-full object-contain drop-shadow-lg" />
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-white">Anna University Portal</h2>

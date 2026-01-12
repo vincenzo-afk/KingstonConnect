@@ -76,8 +76,8 @@ Here's what I would help you with:
                     <div className="flex-1 flex flex-col items-center justify-center p-8">
                         {/* Logo */}
                         <div className="relative mb-6">
-                            <div className="w-24 h-24 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-cyan-500/30">
-                                <Zap className="w-12 h-12" />
+                            <div className="w-24 h-24 flex items-center justify-center">
+                                <img src="/logo.png" alt="StudyGPT Logo" className="w-full h-full object-contain drop-shadow-2xl" />
                             </div>
                             <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center">
                                 <Sparkles className="w-4 h-4 text-white" />
@@ -127,8 +127,8 @@ Here's what I would help you with:
                                 )}
                                 <div
                                     className={`max-w-[70%] p-4 rounded-2xl ${message.role === 'user'
-                                            ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
-                                            : 'bg-white/5 text-slate-300 border border-white/10'
+                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                        : 'bg-white/5 text-slate-300 border border-white/10'
                                         }`}
                                 >
                                     <p className="whitespace-pre-wrap">{message.content}</p>
