@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ExternalLink, RefreshCw, Calendar, Award, BookOpen, FileText, Clock } from 'lucide-react';
+import { RefreshCw, Calendar, Award, BookOpen, FileText, Clock } from 'lucide-react';
 
 // =============================================================================
 // MOCK DATA
