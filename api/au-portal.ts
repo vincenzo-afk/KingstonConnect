@@ -329,22 +329,26 @@ async function handleSubmit(body: {
     throw err ?? new Error("The portal did not respond after multiple attempts");
   }
 
-  // Detect common portal errors
-  if (/INVALID|NOT FOUND|captcha|no result|not exist/i.test(lastHtml) && !/<table/i.test(lastHtml)) {
+  // Detect common portal errors. IMPORTANT: for non-existent registers the
+  // portal returns the EXACT SAME "Invalid data" page whether the captcha was
+  // right or wrong — so a failure here can always mean EITHER cause.
+  // We classify heuristically: a well-formed register+DOB whose submission
+  // fails is reported as an identity problem (the captcha was almost certainly
+  // accepted first), and the message tells the student to verify their details.
+  if (/INVALID|NOT FOUND|captcha|no result|not exist|invalid data/i.test(lastHtml) && !/<table/i.test(lastHtml)) {
     const clean = lastHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const snippet = clean.slice(0, 600);
-    // Order matters: credential error pages also contain the word "invalid".
-    if (/register number|date of birth|profile not found/i.test(snippet)) {
+    const newSession = await handleInit().catch(() => undefined);
+    // A syntactically valid register number means the portal checked identity,
+    // so the failure is almost certainly the register/DOB combination.
+    if (/^\d{2}[A-Z]{3}\d{4,6}$/i.test((register_no ?? "").trim())) {
       return {
         error: "NO_RESULT",
         message:
-          "No results found for this register number / DOB. Please double-check both values (DD-MM-YYYY format) and try again.",
+          "No results found for this register number / DOB. The portal could not find a student with these details. Please verify your register number and DOB exactly as registered with the university (DOB format: DD-MM-YYYY).",
+        newSession,
       };
     }
-    if (/no result|not exist|not found/i.test(snippet)) {
-      return { error: "NO_RESULT", message: "No results found for this register number / DOB." };
-    }
-    // The portal's captcha-fail page also contains the word "invalid".
     if (/invalid|captcha/i.test(snippet)) {
       return {
         error: "INVALID_CAPTCHA",
@@ -352,13 +356,10 @@ async function handleSubmit(body: {
           "The captcha code was incorrect, or the register number / DOB does not match. Please re-enter the captcha carefully (and verify your DOB format: DD-MM-YYYY) and try again.",
         // Exact portal wording, shown only in dev/debug builds for diagnosis
         rawSnippet: snippet.slice(0, 200),
-        // Provide a fresh session + new captcha image so a retry is checked
-        // against a brand-new captcha (old captcha answers can never match
-        // once the portal regenerates them).
-        newSession: await handleInit(),
+        newSession,
       };
     }
-    return { error: "PORTAL_ERROR", message: snippet || "The portal returned an unexpected page." };
+    return { error: "PORTAL_ERROR", message: snippet || "The portal returned an unexpected page.", newSession };
   }
 
   return parseResults(lastHtml);
