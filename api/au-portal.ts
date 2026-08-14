@@ -86,11 +86,16 @@ async function handleInit(): Promise<unknown> {
   const imgBuf = await fetchUrl(CAPTCHA_URL, { buffer: true });
   const { base64, mime } = toBase64(imgBuf);
 
+  // The student login form carries a dynamic self-valued hidden token
+  // (name == value, e.g. "ZyH556OcMVTSVku17Vdq"). Find it by excluding
+  // the known staff-form fields.
+  const dynamicKeys = Object.keys(hidden).filter((k) => k !== "salt" && k !== "pagetoken");
+  const tokenName = dynamicKeys[0] ?? "";
   return {
-    salt: hidden.salt ?? hidden.salt ?? "",
+    salt: hidden.salt ?? "",
     pagetoken: hidden.pagetoken ?? "",
-    tokenName: hidden.tokenName ?? "",
-    tokenValue: hidden.tokenValue ?? "",
+    tokenName,
+    tokenValue: hidden[tokenName] ?? "",
     captchaBase64: base64,
     captchaMime: mime,
     hidden,
@@ -245,8 +250,6 @@ async function handleSubmit(body: {
   security_code_student?: string;
   tokenName?: string;
   tokenValue?: string;
-  salt?: string;
-  pagetoken?: string;
 }): Promise<unknown> {
   const {
     register_no,
@@ -254,22 +257,22 @@ async function handleSubmit(body: {
     security_code_student,
     tokenName,
     tokenValue,
-    salt,
-    pagetoken,
   } = body;
 
   if (!register_no || !dob || !security_code_student) {
     throw new Error("Missing register_no, dob, or security_code_student");
   }
 
+  // The student form submits only register_no / dob / security_code_student
+  // plus its own dynamic self-valued hidden token and the "gos" submit button.
+  // (salt/pagetoken belong to the separate institution/staff form.)
   const params = new URLSearchParams({
     register_no,
     dob,
     security_code_student,
+    gos: "Login",
   });
   if (tokenName) params.set(tokenName, tokenValue ?? "");
-  if (salt) params.set("salt", salt);
-  if (pagetoken) params.set("pagetoken", pagetoken);
 
   const resultHtml = await fetchUrl(STUDENTS_CORNER, {
     method: "POST",
@@ -285,6 +288,14 @@ async function handleSubmit(body: {
   if (/INVALID|NOT FOUND|captcha|no result|not exist/i.test(resultHtml) && !/<table/i.test(resultHtml)) {
     const clean = resultHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const snippet = clean.slice(0, 400);
+    // Order matters: credential error pages also contain the word "invalid".
+    if (/register number|date of birth|profile not found/i.test(snippet)) {
+      return {
+        error: "NO_RESULT",
+        message:
+          "No results found for this register number / DOB. Please double-check both values (DD-MM-YYYY format) and try again.",
+      };
+    }
     if (/invalid|captcha/i.test(snippet)) {
       return { error: "INVALID_CAPTCHA", message: "The captcha code was incorrect. Please try again." };
     }

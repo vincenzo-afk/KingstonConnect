@@ -80,8 +80,6 @@ export async function fetchAUResults(params: {
       security_code_student: params.captchaCode,
       tokenName: params.tokenName,
       tokenValue: params.tokenValue,
-      salt: params.salt,
-      pagetoken: params.pagetoken,
     }),
   });
   if (!res.ok) {
