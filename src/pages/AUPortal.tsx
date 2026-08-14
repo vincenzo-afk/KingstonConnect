@@ -73,6 +73,33 @@ const AUPortalPage: React.FC = () => {
     const [examSession, setExamSession] = useState(EXAM_SESSIONS[0]);
     const [regNo, setRegNo] = useState(store.registerNo || user?.rollNumber || '');
     const [dob, setDob] = useState(store.dateOfBirth || '');
+    const [dobParts, setDobParts] = useState({ day: '', month: '', year: '' });
+
+    /** Build DD-MM-YYYY from the picker parts. */
+    const buildDob = (day: string, month: string, year: string): string => {
+        if (!day || !month || !year) return '';
+        return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+    };
+
+    /** Parse a DD-MM-YYYY DOB (stored or typed) back into picker parts. */
+    const parseDobParts = (d: string) => {
+        const m = /^\s*(\d{1,2})-(\d{1,2})-(\d{4})\s*$/.exec(d);
+        return m
+            ? { day: m[1], month: m[2], year: m[3] }
+            : { day: '', month: '', year: '' };
+    };
+
+    const updateDobPart = (part: 'day' | 'month' | 'year', value: string) => {
+        const next = { ...dobParts, [part]: value };
+        setDobParts(next);
+        setDob(buildDob(next.day, next.month, next.year));
+    };
+
+    // If the user typed/edited DOB text directly, sync the picker parts.
+    const syncDobParts = (d: string) => {
+        const parts = parseDobParts(d);
+        if (parts.day || parts.month || parts.year) setDobParts(parts);
+    };
     const [identitySaved, setIdentitySaved] = useState(false);
 
     // ---------- Live AU portal fetch ----------
@@ -438,12 +465,88 @@ const AUPortalPage: React.FC = () => {
                             value={regNo}
                             onChange={(e) => setRegNo(e.target.value)}
                         />
-                        <Input
-                            label="Date of Birth"
-                            placeholder="DD-MM-YYYY (e.g. 15-08-2003)"
-                            value={dob}
-                            onChange={(e) => setDob(e.target.value)}
-                        />
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                                Date of Birth <span className="text-slate-500">(DD-MM-YYYY)</span>
+                            </label>
+                            {/* Day picker row — choose instead of typing */}
+                            <div className="grid grid-cols-3 gap-2">
+                                <Select
+                                    aria-label="Day"
+                                    options={[
+                                        { value: '', label: 'Day' },
+                                        ...Array.from({ length: 31 }, (_, i) => ({
+                                            value: String(i + 1),
+                                            label: String(i + 1),
+                                        })),
+                                    ]}
+                                    value={dobParts.day}
+                                    onChange={(e) => updateDobPart('day', e.target.value)}
+                                />
+                                <Select
+                                    aria-label="Month"
+                                    options={[
+                                        { value: '', label: 'Month' },
+                                        { value: '01', label: 'January' },
+                                        { value: '02', label: 'February' },
+                                        { value: '03', label: 'March' },
+                                        { value: '04', label: 'April' },
+                                        { value: '05', label: 'May' },
+                                        { value: '06', label: 'June' },
+                                        { value: '07', label: 'July' },
+                                        { value: '08', label: 'August' },
+                                        { value: '09', label: 'September' },
+                                        { value: '10', label: 'October' },
+                                        { value: '11', label: 'November' },
+                                        { value: '12', label: 'December' },
+                                    ]}
+                                    value={dobParts.month}
+                                    onChange={(e) => updateDobPart('month', e.target.value)}
+                                />
+                                <Select
+                                    aria-label="Year"
+                                    options={[
+                                        { value: '', label: 'Year' },
+                                        ...Array.from(
+                                            { length: 30 },
+                                            (_, i) => ({
+                                                value: String(2012 - i),
+                                                label: String(2012 - i),
+                                            })
+                                        ),
+                                    ]}
+                                    value={dobParts.year}
+                                    onChange={(e) => updateDobPart('year', e.target.value)}
+                                />
+                            </div>
+                            {/* Manual override — hidden until user clears the picker */}
+                            {!dob && !dobParts.day && !dobParts.month && !dobParts.year ? (
+                                <Input
+                                    placeholder="Or type: DD-MM-YYYY (e.g. 15-08-2003)"
+                                    value={dob}
+                                    onChange={(e) => {
+                                        setDob(e.target.value);
+                                        syncDobParts(e.target.value);
+                                    }}
+                                />
+                            ) : (
+                                <div className="mt-2 flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-cyan-400">
+                                        {dob || '—'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDobParts({ day: '', month: '', year: '' });
+                                            setDob('');
+                                        }}
+                                        className="text-xs text-slate-500 hover:text-slate-300 underline"
+                                    >
+                                        change
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <div className="flex items-center justify-between gap-3">
                             <p className="text-xs text-slate-500">
                                 Used as your ID on this app only — nothing is sent to the official portal.
