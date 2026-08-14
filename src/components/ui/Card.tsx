@@ -107,7 +107,7 @@ interface StatCardProps {
     title: string;
     value: string | number;
     subtitle?: string;
-    icon?: React.ReactNode;
+    icon?: React.ReactElement;
     color?: 'default' | 'primary' | 'success' | 'warning' | 'error' | 'accent' | 'info';
     variant?: 'default' | 'primary' | 'success' | 'warning' | 'error' | 'accent' | 'info';
     trend?: {
@@ -153,7 +153,7 @@ export const StatCard: React.FC<StatCardProps> = ({
                         "w-12 h-12 rounded-xl flex items-center justify-center border transition-transform group-hover:scale-110 duration-300",
                         colors[effectiveColor]
                     )}>
-                        {React.isValidElement(icon) ? React.cloneElement(icon as any, { className: "w-6 h-6" }) : icon}
+                        {icon && React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-6 h-6" }) : icon}
                     </div>
                 )}
             </div>

@@ -31,7 +31,7 @@ export function useDebounce<T>(value: T, delay: number = 300): T {
 /**
  * Debounce a callback function
  */
-export function useDebouncedCallback<T extends (...args: any[]) => any>(
+export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
     callback: T,
     delay: number = 300
 ): T {
@@ -474,7 +474,7 @@ interface UseFormOptions<T> {
     onSubmit?: (values: T) => void | Promise<void>;
 }
 
-export function useForm<T extends Record<string, any>>(options: UseFormOptions<T>) {
+export function useForm<T extends Record<string, unknown>>(options: UseFormOptions<T>) {
     const { initialValues, validate, onSubmit } = options;
 
     const [values, setValues] = useState<T>(initialValues);
@@ -490,7 +490,7 @@ export function useForm<T extends Record<string, any>>(options: UseFormOptions<T
         return Object.keys(errors).length === 0;
     }, [errors]);
 
-    const handleChange = useCallback((field: keyof T, value: any) => {
+    const handleChange = useCallback((field: keyof T, value: unknown) => {
         setValues(prev => ({ ...prev, [field]: value }));
         if (validate) {
             const newErrors = validate({ ...values, [field]: value });
@@ -528,7 +528,7 @@ export function useForm<T extends Record<string, any>>(options: UseFormOptions<T
         setTouched({});
     }, [initialValues]);
 
-    const setFieldValue = useCallback((field: keyof T, value: any) => {
+    const setFieldValue = useCallback((field: keyof T, value: unknown) => {
         handleChange(field, value);
     }, [handleChange]);
 

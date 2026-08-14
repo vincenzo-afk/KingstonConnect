@@ -36,10 +36,10 @@ const AssignmentsPage: React.FC = () => {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'pending': return { bg: 'bg-orange-500/20', text: 'text-orange-400', variant: 'warning' };
-            case 'submitted': return { bg: 'bg-blue-500/20', text: 'text-blue-400', variant: 'info' };
-            case 'graded': return { bg: 'bg-green-500/20', text: 'text-green-400', variant: 'success' };
-            default: return { bg: 'bg-slate-500/20', text: 'text-slate-400', variant: 'secondary' };
+            case 'pending': return { bg: 'bg-orange-500/20', text: 'text-orange-400', variant: 'warning' as const };
+            case 'submitted': return { bg: 'bg-blue-500/20', text: 'text-blue-400', variant: 'info' as const };
+            case 'graded': return { bg: 'bg-green-500/20', text: 'text-green-400', variant: 'success' as const };
+            default: return { bg: 'bg-slate-500/20', text: 'text-slate-400', variant: 'secondary' as const };
         }
     };
 
@@ -123,7 +123,7 @@ const AssignmentsPage: React.FC = () => {
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <h3 className="font-semibold text-white">{assignment.title}</h3>
-                                                <Badge variant={statusColors.variant as any} size="sm" className="capitalize">
+                                                <Badge variant={statusColors.variant} size="sm" className="capitalize">
                                                     {assignment.status}
                                                 </Badge>
                                                 {isOverdue && (

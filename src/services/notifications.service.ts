@@ -43,7 +43,7 @@ export interface Notification {
     body: string;
     icon?: string;
     link?: string;
-    data?: Record<string, any>;
+    data?: Record<string, unknown>;
     read: boolean;
     createdAt: Date;
     expiresAt?: Date;
@@ -56,7 +56,7 @@ export interface NotificationInput {
     body: string;
     icon?: string;
     link?: string;
-    data?: Record<string, any>;
+    data?: Record<string, unknown>;
     expiresAt?: Date;
 }
 

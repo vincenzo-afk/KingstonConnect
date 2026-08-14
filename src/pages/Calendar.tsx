@@ -33,11 +33,11 @@ const CalendarPage: React.FC = () => {
 
     const getTypeBadgeVariant = (type: string) => {
         switch (type) {
-            case 'exam': return 'error';
-            case 'holiday': return 'success';
-            case 'deadline': return 'warning';
-            case 'event': return 'primary';
-            default: return 'secondary';
+            case 'exam': return 'error' as const;
+            case 'holiday': return 'success' as const;
+            case 'deadline': return 'warning' as const;
+            case 'event': return 'primary' as const;
+            default: return 'secondary' as const;
         }
     };
 
@@ -133,7 +133,7 @@ const CalendarPage: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="text-right flex-shrink-0">
-                                            <Badge variant={getTypeBadgeVariant(event.type) as any} className="capitalize">
+                                            <Badge variant={getTypeBadgeVariant(event.type)} className="capitalize">
                                                 {event.type}
                                             </Badge>
                                             <p className={`text-sm mt-1 ${colors.text}`}>

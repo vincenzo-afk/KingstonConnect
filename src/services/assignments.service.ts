@@ -235,13 +235,15 @@ export async function updateAssignment(
     data: Partial<AssignmentInput>
 ): Promise<void> {
     const docRef = doc(db, COLLECTIONS.ASSIGNMENTS, assignmentId);
-    const updateData: any = {
+    const updateData: Partial<Record<keyof AssignmentInput, unknown>> & {
+        updatedAt: ReturnType<typeof serverTimestamp>;
+    } = {
         ...data,
         updatedAt: serverTimestamp(),
     };
 
     if (data.dueDate) {
-        updateData.dueDate = Timestamp.fromDate(data.dueDate);
+        (updateData as { dueDate: Timestamp }).dueDate = Timestamp.fromDate(data.dueDate);
     }
 
     await updateDoc(docRef, updateData);

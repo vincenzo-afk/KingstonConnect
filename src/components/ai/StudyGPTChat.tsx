@@ -6,6 +6,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores';
 import { sendMessage, setColabUrl, getColabUrl } from '@/services/studygpt.service';
+import { getStudentQuickFacts } from '@/services/studyContext';
+import { useAUResultsStore } from '@/stores/auResultsStore';
 import {
     Send,
     Paperclip,
@@ -42,43 +44,46 @@ interface StudyGPTChatProps {
     className?: string;
 }
 
+// Inline formatting helper (bold **..** and italic *..*)
+const renderInline = (text: string, strongClass: string): React.ReactNode => {
+    const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className={strongClass}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+            return <em key={i} className="text-slate-300">{part.slice(1, -1)}</em>;
+        }
+        if (part.includes('`')) {
+            const codeParts = part.split(/(`[^`]+`)/g);
+            return (
+                <span key={i}>
+                    {codeParts.map((cp, j) =>
+                        cp.startsWith('`') && cp.endsWith('`') ? (
+                            <code key={j} className="px-1.5 py-0.5 bg-white/10 rounded text-cyan-300 text-sm font-mono border border-white/10">{cp.slice(1, -1)}</code>
+                        ) : (
+                            <span key={j}>{cp}</span>
+                        )
+                    )}
+                </span>
+            );
+        }
+        return <span key={i}>{part}</span>;
+    });
+};
+
 // Markdown-like text renderer
 const MessageContent: React.FC<{ content: string; isUser?: boolean }> = ({ content, isUser }) => {
+    const strongClass = isUser ? 'text-white' : 'text-cyan-300 font-semibold';
     const renderLine = (line: string, index: number) => {
         // Code blocks (inline)
         if (line.includes('`') && !line.startsWith('```')) {
-            const parts = line.split(/(`[^`]+`)/g);
-            return (
-                <p key={index} className="mb-2">
-                    {parts.map((part, i) =>
-                        part.startsWith('`') && part.endsWith('`') ? (
-                            <code key={i} className="px-1.5 py-0.5 bg-white/10 rounded text-cyan-300 text-sm font-mono border border-white/10">
-                                {part.slice(1, -1)}
-                            </code>
-                        ) : (
-                            <span key={i}>{part}</span>
-                        )
-                    )}
-                </p>
-            );
+            return <p key={index} className="mb-2">{renderInline(line, strongClass)}</p>;
         }
 
-        // Bold text
-        if (line.includes('**')) {
-            const parts = line.split(/(\*\*[^*]+\*\*)/g);
-            return (
-                <p key={index} className="mb-2">
-                    {parts.map((part, i) =>
-                        part.startsWith('**') && part.endsWith('**') ? (
-                            <strong key={i} className={isUser ? 'text-white' : 'text-cyan-300 font-semibold'}>
-                                {part.slice(2, -2)}
-                            </strong>
-                        ) : (
-                            <span key={i}>{part}</span>
-                        )
-                    )}
-                </p>
-            );
+        // Bold / italic text
+        if (line.includes('**') || line.includes('*')) {
+            return <p key={index} className="mb-2">{renderInline(line, strongClass)}</p>;
         }
 
         // Headers
@@ -121,9 +126,52 @@ const MessageContent: React.FC<{ content: string; isUser?: boolean }> = ({ conte
         return <p key={index} className="mb-2 leading-relaxed">{line}</p>;
     };
 
+    const lines = content.split('\n');
+    const rendered: React.ReactNode[] = [];
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+        // Detect markdown table blocks
+        if (/^\|/.test(line) && i + 1 < lines.length && /^\|[\s:\-|]+\|$/.test(lines[i + 1].trim())) {
+            const headerCells = line.split('|').filter(c => c.trim() !== '');
+            const rows: string[][] = [];
+            let j = i + 2;
+            while (j < lines.length && /^\|/.test(lines[j])) {
+                rows.push(lines[j].split('|').filter(c => c.trim() !== ''));
+                j++;
+            }
+            rendered.push(
+                <div key={`table-${i}`} className="my-3 overflow-x-auto rounded-lg border border-white/10">
+                    <table className="w-full text-xs sm:text-sm">
+                        <thead>
+                            <tr className="border-b border-white/10 bg-white/5">
+                                {headerCells.map((cell, ci) => (
+                                    <th key={ci} className="px-2.5 py-2 text-left font-semibold text-cyan-300 whitespace-nowrap">{cell.trim()}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((row, ri) => (
+                                <tr key={ri} className="border-b border-white/5 last:border-0">
+                                    {row.map((cell, ci) => (
+                                        <td key={ci} className="px-2.5 py-2 text-slate-300 whitespace-nowrap">{cell.trim()}</td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+            i = j;
+            continue;
+        }
+        rendered.push(renderLine(line, i));
+        i++;
+    }
+
     return (
         <div className="space-y-0.5">
-            {content.split('\n').map((line, index) => renderLine(line, index))}
+            {rendered}
         </div>
     );
 };
@@ -204,13 +252,14 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                     sources: response.sources?.map(s => typeof s === 'string' ? s : s) || [],
                 })
             );
-        } catch (error: any) {
+        } catch (error) {
             // Show error message
+            const errorMessage = error instanceof Error ? error.message : 'Sorry, I encountered an error. Please check your connection settings.';
             setMessages(prev =>
                 prev.filter(m => m.id !== loadingId).concat({
                     id: Date.now().toString(),
                     role: 'ai',
-                    content: error.message || 'Sorry, I encountered an error. Please check your connection settings.',
+                    content: errorMessage,
                     timestamp: new Date(),
                     error: true,
                 })
@@ -259,12 +308,31 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
         setShowSettings(false);
     };
 
+    // Context-aware quick prompts derived from the student's live profile
+    const quickFacts = getStudentQuickFacts(user);
+    const auResultsCount = useAUResultsStore((s) => s.semesters.length);
     const suggestedQuestions = [
-        { icon: <Brain className="w-5 h-5" />, title: "Explain a concept", desc: "Understand complex topics simply" },
-        { icon: <BookOpen className="w-5 h-5" />, title: "Study Plan", desc: "Create a schedule for exams" },
-        { icon: <Code className="w-5 h-5" />, title: "Code Help", desc: "Debug or write code snippets" },
-        { icon: <Calculator className="w-5 h-5" />, title: "Solve Problems", desc: "Step-by-step math solutions" },
+        { icon: <Brain className="w-5 h-5" />, title: "Explain a concept", desc: "Understand complex topics simply", query: 'Explain deadlock in operating systems with an example' },
+        { icon: <BookOpen className="w-5 h-5" />, title: "Study Plan", desc: "Create a schedule for exams", query: 'Create a study plan for my weak subjects' },
+        { icon: <Code className="w-5 h-5" />, title: "Code Help", desc: "Debug or write code snippets", query: 'Write code for AVL tree insertion with rotations' },
+        { icon: <Calculator className="w-5 h-5" />, title: "Solve Problems", desc: "Step-by-step math solutions", query: 'Solve 0/1 knapsack using dynamic programming' },
     ];
+    // Personalized chips: shown when we have recorded results / low attendance data
+    const personalizedChips: { label: string; query: string }[] = [];
+    if (quickFacts.weakSubjectName) {
+        personalizedChips.push({ label: `Help me improve ${quickFacts.weakSubjectName}`, query: `Create a revision plan for ${quickFacts.weakSubjectName}` });
+    }
+    if (quickFacts.semester) {
+        personalizedChips.push({ label: `Study plan for semester ${quickFacts.semester}`, query: `Create a study plan for semester ${quickFacts.semester}` });
+    }
+    if (quickFacts.attendanceLowSubject) {
+        personalizedChips.push({ label: `Fix my attendance in ${quickFacts.attendanceLowSubject}`, query: `How do I fix my attendance in ${quickFacts.attendanceLowSubject}?` });
+    }
+    if (auResultsCount === 0) {
+        personalizedChips.push({ label: 'How does CGPA/grading work?', query: 'Explain Anna University grades and how CGPA is calculated' });
+    } else {
+        personalizedChips.push({ label: 'Analyze my CGPA', query: 'Analyze my CGPA and suggest how to improve it' });
+    }
 
     return (
         <div className={cn(
@@ -318,11 +386,28 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                             I'm here to help you ace your exams. Ask me anything about your subjects, notes, or assignments.
                         </p>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full">
+                        {personalizedChips.length > 0 && (
+                        <div className="w-full max-w-2xl mb-8">
+                            <p className="text-xs font-medium text-cyan-400 uppercase tracking-wider mb-3">Based on your profile</p>
+                            <div className="flex flex-wrap gap-2 justify-center">
+                                {personalizedChips.map((chip, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setInput(chip.query)}
+                                        className="px-3 py-1.5 text-xs bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 text-cyan-300 rounded-full hover:border-cyan-400 hover:bg-cyan-500/20 transition-all"
+                                    >
+                                        {chip.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full">
                             {suggestedQuestions.map((item, i) => (
                                 <button
                                     key={i}
-                                    onClick={() => setInput(item.title)}
+                                    onClick={() => setInput(item.query)}
                                     className="flex items-center gap-4 p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 hover:border-white/10 transition-all group text-left"
                                 >
                                     <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform border border-white/5">

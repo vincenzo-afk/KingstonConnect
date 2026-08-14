@@ -21,8 +21,12 @@ import {
     SlidersHorizontal,
     MessageCircle,
     IndianRupee,
+    Heart,
+    GitCompareArrows,
+    Minus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useHousingStore } from '@/stores/housingStore';
 import {
     properties,
     propertyTypes,
@@ -74,7 +78,8 @@ interface PropertyCardProps {
     onClick: (p: Property) => void;
 }
 
-const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => (
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => {
+    return (
     <button
         type="button"
         onClick={() => onClick(property)}
@@ -144,7 +149,8 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property, onClick }) => (
             </div>
         </div>
     </button>
-);
+    );
+};
 
 // =============================================================================
 // PROPERTY DETAIL MODAL
@@ -157,6 +163,9 @@ interface PropertyDetailModalProps {
 
 const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ property, onClose }) => {
     const [imageIndex, setImageIndex] = useState(0);
+    const { toggleWishlist, isInWishlist, toggleCompare, isInCompare } = useHousingStore();
+    const wished = isInWishlist(property.id);
+    const compared = isInCompare(property.id);
 
     const nextImage = () => setImageIndex((i) => (i + 1) % property.images.length);
     const prevImage = () =>
@@ -315,13 +324,29 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ property, onC
                     <p className="text-sm text-slate-400 mb-4">
                         {property.ownerName} · Available from {property.availableFrom}
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
+                        <Button
+                            variant="outline"
+                            icon={wished ? <Heart className="w-4 h-4 fill-rose-500 text-rose-400" /> : <Heart className="w-4 h-4" />}
+                            onClick={() => toggleWishlist(property.id)}
+                            className={wished ? 'border-rose-500/40 text-rose-300' : ''}
+                        >
+                            {wished ? 'Saved to Wishlist' : 'Add to Wishlist'}
+                        </Button>
                         <Button
                             variant="primary"
                             icon={<MessageCircle className="w-4 h-4" />}
                             onClick={() => window.open(whatsappLink, '_blank')}
                         >
                             WhatsApp
+                        </Button>
+                        <Button
+                            variant="outline"
+                            icon={compared ? <Minus className="w-4 h-4" /> : <GitCompareArrows className="w-4 h-4" />}
+                            onClick={() => toggleCompare(property.id)}
+                            className={compared ? 'border-cyan-500/40 text-cyan-300' : ''}
+                        >
+                            {compared ? 'In Compare (3 max)' : 'Add to Compare'}
                         </Button>
                         <Button
                             variant="secondary"
@@ -349,6 +374,7 @@ const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ property, onC
 // =============================================================================
 
 const HousingPage: React.FC = () => {
+    const { wishlist, compare, removeFromCompare, clearCompare } = useHousingStore();
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState<PropertyType | 'All'>('All');
     const [furnishingFilter, setFurnishingFilter] = useState<string>('All');
@@ -548,6 +574,63 @@ const HousingPage: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Sticky compare bar */}
+            {compare.length > 0 && (
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-3xl w-[calc(100%-2rem)]">
+                    <Card className="bg-[#131b24]/95 backdrop-blur-xl border-cyan-500/30 shadow-2xl shadow-cyan-500/10">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2 text-sm font-medium text-white">
+                                <GitCompareArrows className="w-4 h-4 text-cyan-400" />
+                                Compare ({compare.length}/3)
+                            </div>
+                            {compare.map((id) => {
+                                const prop = properties.find((pp) => pp.id === id);
+                                return (
+                                    <div key={id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300">
+                                        <span className="truncate max-w-[140px]">{prop?.title ?? id}</span>
+                                        <button
+                                            onClick={() => removeFromCompare(id)}
+                                            className="text-slate-500 hover:text-red-400 transition-colors"
+                                            aria-label="Remove from compare"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                            {compare.length >= 2 && (
+                                <a href={`/housing-compare?ids=${compare.join(',')}`}>
+                                    <Button variant="primary" size="sm" icon={<GitCompareArrows className="w-4 h-4" />}>
+                                        Compare Now
+                                    </Button>
+                                </a>
+                            )}
+                            <button
+                                onClick={() => clearCompare()}
+                                className="text-xs text-slate-500 hover:text-white transition-colors"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {/* Wishlist indicator */}
+            {wishlist.length > 0 && (
+                <div className="fixed bottom-4 right-4 z-40">
+                    <Card className="bg-[#131b24]/95 backdrop-blur-xl border-rose-500/30">
+                        <div className="flex items-center gap-2 px-3 py-2">
+                            <Heart className="w-4 h-4 text-rose-400 fill-rose-500" />
+                            <span className="text-sm text-white font-medium">{wishlist.length} saved</span>
+                            <a href="/housing-wishlist" className="text-xs text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+                                View wishlist
+                            </a>
+                        </div>
+                    </Card>
+                </div>
+            )}
 
             {/* Detail modal */}
             {selectedProperty && (

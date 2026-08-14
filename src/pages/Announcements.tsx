@@ -29,11 +29,11 @@ const AnnouncementsPage: React.FC = () => {
     const getPriorityConfig = (priority: string) => {
         switch (priority) {
             case 'high':
-                return { icon: AlertTriangle, bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', badge: 'error' };
+                return { icon: AlertTriangle, bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', badge: 'error' as const };
             case 'medium':
-                return { icon: Info, bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30', badge: 'warning' };
+                return { icon: Info, bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30', badge: 'warning' as const };
             default:
-                return { icon: CheckCircle, bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', badge: 'info' };
+                return { icon: CheckCircle, bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30', badge: 'info' as const };
         }
     };
 
@@ -93,7 +93,7 @@ const AnnouncementsPage: React.FC = () => {
                                         <div>
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <h3 className="text-lg font-semibold text-white">{announcement.title}</h3>
-                                                <Badge variant={config.badge as any} size="sm" className="capitalize">
+                                                <Badge variant={config.badge} size="sm" className="capitalize">
                                                     {announcement.priority} Priority
                                                 </Badge>
                                                 {announcement.department && (

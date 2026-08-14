@@ -43,6 +43,11 @@ const StudentsPage = lazy(() => import('@/pages/Students'));
 const TeachersPage = lazy(() => import('@/pages/Teachers'));
 const DepartmentsPage = lazy(() => import('@/pages/Departments'));
 const HousingPage = lazy(() => import('@/pages/Housing'));
+const HousingComparePage = lazy(() => import('@/pages/HousingCompare'));
+const HousingWishlistPage = lazy(() => import('@/pages/HousingWishlist'));
+const CGPACalculatorPage = lazy(() => import('@/pages/CGPACalculator'));
+const AttendancePredictorPage = lazy(() => import('@/pages/AttendancePredictor'));
+const EventsPage = lazy(() => import('@/pages/Events'));
 
 // =============================================================================
 // LOADING FALLBACK
@@ -144,6 +149,11 @@ const AppRoutes: React.FC = () => {
                     <Route path="/teachers" element={<TeachersPage />} />
                     <Route path="/departments" element={<DepartmentsPage />} />
                     <Route path="/housing" element={<HousingPage />} />
+                    <Route path="/housing-compare" element={<HousingComparePage />} />
+                    <Route path="/housing-wishlist" element={<HousingWishlistPage />} />
+                    <Route path="/cgpa-calculator" element={<CGPACalculatorPage />} />
+                    <Route path="/attendance-predictor" element={<AttendancePredictorPage />} />
+                    <Route path="/events" element={<EventsPage />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </Suspense>

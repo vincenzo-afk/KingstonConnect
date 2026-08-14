@@ -16,7 +16,7 @@ export interface Column<T> {
     searchable?: boolean;
     width?: string;
     align?: 'left' | 'center' | 'right';
-    render?: (value: any, row: T, index: number) => React.ReactNode;
+    render?: (value: unknown, row: T, index: number) => React.ReactNode;
 }
 
 export interface DataTableProps<T> {
@@ -43,7 +43,7 @@ type SortDirection = 'asc' | 'desc' | null;
 // DATA TABLE COMPONENT
 // =============================================================================
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends Record<string, unknown>>({
     data,
     columns,
     keyField,
@@ -99,7 +99,7 @@ export function DataTable<T extends Record<string, any>>({
             } else if (typeof aValue === 'number' && typeof bValue === 'number') {
                 comparison = aValue - bValue;
             } else if (aValue && typeof aValue === 'object' && 'getTime' in aValue && bValue && typeof bValue === 'object' && 'getTime' in bValue) {
-                comparison = (aValue as Date).getTime() - (bValue as Date).getTime();
+                comparison = (aValue as unknown as Date).getTime() - (bValue as unknown as Date).getTime();
             } else {
                 comparison = String(aValue).localeCompare(String(bValue));
             }

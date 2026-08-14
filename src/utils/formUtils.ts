@@ -6,12 +6,12 @@
 // VALIDATION RULES
 // =============================================================================
 
-export type ValidationRule<T> = (value: T, formValues?: Record<string, any>) => string | undefined;
+export type ValidationRule<T> = (value: T, formValues?: Record<string, unknown>) => string | undefined;
 
 /**
  * Required field validation
  */
-export const required = (message = 'This field is required'): ValidationRule<any> => {
+export const required = (message = 'This field is required'): ValidationRule<unknown> => {
     return (value) => {
         if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
             return message;
@@ -109,7 +109,7 @@ export const max = (maxValue: number, message?: string): ValidationRule<number> 
 /**
  * Match another field validation
  */
-export const matches = (fieldName: string, message?: string): ValidationRule<any> => {
+export const matches = (fieldName: string, message?: string): ValidationRule<unknown> => {
     return (value, formValues) => {
         if (formValues && value !== formValues[fieldName]) {
             return message || `Must match ${fieldName}`;
@@ -153,7 +153,7 @@ export function composeValidators<T>(...validators: ValidationRule<T>[]): Valida
 export function validateField<T>(
     value: T,
     validators: ValidationRule<T>[],
-    formValues?: Record<string, any>
+    formValues?: Record<string, unknown>
 ): string | undefined {
     for (const validator of validators) {
         const error = validator(value, formValues);
@@ -165,15 +165,15 @@ export function validateField<T>(
 /**
  * Validate entire form
  */
-export function validateForm<T extends Record<string, any>>(
+export function validateForm<T extends Record<string, unknown>>(
     values: T,
-    schema: Partial<Record<keyof T, ValidationRule<any>[]>>
+    schema: Partial<Record<keyof T, ValidationRule<unknown>[]>>
 ): Partial<Record<keyof T, string>> {
     const errors: Partial<Record<keyof T, string>> = {};
 
     for (const [field, validators] of Object.entries(schema)) {
         if (validators) {
-            const error = validateField(values[field], validators as ValidationRule<any>[], values);
+            const error = validateField(values[field], validators as ValidationRule<unknown>[], values);
             if (error) {
                 errors[field as keyof T] = error;
             }
@@ -201,8 +201,8 @@ export function createFieldProps<T>(
     return {
         name,
         value,
-        onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-            onChange(name, e.target.value as any);
+            onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+            onChange(name, e.target.value as unknown as T);
         },
         onBlur: () => onBlur(name),
         error: touched ? error : undefined,
@@ -216,7 +216,7 @@ export function createFieldProps<T>(
 /**
  * Check if values have changed from initial
  */
-export function isDirty<T extends Record<string, any>>(
+export function isDirty<T extends Record<string, unknown>>(
     values: T,
     initialValues: T
 ): boolean {
@@ -226,7 +226,7 @@ export function isDirty<T extends Record<string, any>>(
 /**
  * Get changed fields
  */
-export function getChangedFields<T extends Record<string, any>>(
+export function getChangedFields<T extends Record<string, unknown>>(
     values: T,
     initialValues: T
 ): Partial<T> {
@@ -244,7 +244,7 @@ export function getChangedFields<T extends Record<string, any>>(
 /**
  * Reset form to initial values
  */
-export function resetForm<T extends Record<string, any>>(
+export function resetForm<T extends Record<string, unknown>>(
     initialValues: T,
     setValues: (values: T) => void,
     setErrors: (errors: Partial<Record<keyof T, string>>) => void,

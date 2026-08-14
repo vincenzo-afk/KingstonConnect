@@ -22,7 +22,7 @@ const LazyLoadError: React.FC = () => (
 );
 
 // Helper function to create lazy-loaded components with error handling
-function lazyLoad<T extends ComponentType<any>>(
+function lazyLoad<T extends ComponentType<Record<string, never>>>(
     importFn: () => Promise<{ default: T }>
 ): React.LazyExoticComponent<T> {
     return lazy(() =>
@@ -54,6 +54,11 @@ export const LazyStudents = lazyLoad(() => import('@/pages/Students'));
 export const LazyTeachers = lazyLoad(() => import('@/pages/Teachers'));
 export const LazyDepartments = lazyLoad(() => import('@/pages/Departments'));
 export const LazyHousing = lazyLoad(() => import('@/pages/Housing'));
+export const LazyHousingCompare = lazyLoad(() => import('@/pages/HousingCompare'));
+export const LazyHousingWishlist = lazyLoad(() => import('@/pages/HousingWishlist'));
+export const LazyCGPACalculator = lazyLoad(() => import('@/pages/CGPACalculator'));
+export const LazyAttendancePredictor = lazyLoad(() => import('@/pages/AttendancePredictor'));
+export const LazyEvents = lazyLoad(() => import('@/pages/Events'));
 
 // =============================================================================
 // SUSPENSE WRAPPERS
@@ -121,6 +126,11 @@ export const preloadPage = {
     teachers: () => import('@/pages/Teachers'),
     departments: () => import('@/pages/Departments'),
     housing: () => import('@/pages/Housing'),
+    housingCompare: () => import('@/pages/HousingCompare'),
+    housingWishlist: () => import('@/pages/HousingWishlist'),
+    cgpaCalculator: () => import('@/pages/CGPACalculator'),
+    attendancePredictor: () => import('@/pages/AttendancePredictor'),
+    events: () => import('@/pages/Events'),
 };
 
 /**
@@ -140,7 +150,9 @@ export function preloadCriticalPages() {
 
 export interface RouteConfig {
     path: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     element: React.LazyExoticComponent<ComponentType<any>>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     preload?: () => Promise<any>;
 }
 
@@ -163,4 +175,9 @@ export const lazyRoutes: RouteConfig[] = [
     { path: '/teachers', element: LazyTeachers, preload: preloadPage.teachers },
     { path: '/departments', element: LazyDepartments, preload: preloadPage.departments },
     { path: '/housing', element: LazyHousing, preload: preloadPage.housing },
+    { path: '/housing-compare', element: LazyHousingCompare, preload: preloadPage.housingCompare },
+    { path: '/housing-wishlist', element: LazyHousingWishlist, preload: preloadPage.housingWishlist },
+    { path: '/cgpa-calculator', element: LazyCGPACalculator, preload: preloadPage.cgpaCalculator },
+    { path: '/attendance-predictor', element: LazyAttendancePredictor, preload: preloadPage.attendancePredictor },
+    { path: '/events', element: LazyEvents, preload: preloadPage.events },
 ];

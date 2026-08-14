@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 import {
     Menu, ChevronRight, LogOut, Home, Zap, UserCheck, Award,
     Calendar, Clock, ClipboardList, BookMarked, MessageSquare,
-    Bell, ExternalLink, Users, GraduationCap, Building2, Landmark
+    Bell, ExternalLink, Users, GraduationCap, Building2, Landmark,
+    Calculator, Heart, GitCompareArrows, PartyPopper
 } from 'lucide-react';
 
 // =============================================================================
@@ -32,7 +33,11 @@ export const Sidebar: React.FC = () => {
             { path: '/chat', icon: MessageSquare, label: 'Chat' },
             { path: '/announcements', icon: Bell, label: 'Announcements' },
             { path: '/au-portal', icon: ExternalLink, label: 'AU Portal' },
+            { path: '/cgpa-calculator', icon: Calculator, label: 'CGPA Calculator' },
+            { path: '/events', icon: PartyPopper, label: 'Events' },
             { path: '/housing', icon: Landmark, label: 'Housing' },
+            { path: '/housing-wishlist', icon: Heart, label: 'Housing Wishlist' },
+            { path: '/housing-compare', icon: GitCompareArrows, label: 'Housing Compare' },
         ];
 
         if (user?.role === 'teacher' || user?.role === 'hod' || user?.role === 'principal') {
