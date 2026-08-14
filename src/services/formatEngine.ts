@@ -51,49 +51,57 @@ interface FormatRule {
     id: TextFormat;
     patterns: RegExp[];
     label: string;
+    /**
+     * User-selectable quiz formats are the only ones shown in the chat
+     * "Answer as…" picker. Everything else is automatic: the AI decides to
+     * use it (via pattern hints or its own judgment) when explaining.
+     */
+    selectable: boolean;
 }
 
 export const FORMAT_RULES: FormatRule[] = [
-    { id: 'mcq', patterns: [/mcq|multiple choic|quiz mode/i], label: 'MCQs' },
-    { id: 'flashcards', patterns: [/flashcard|flash notes|recall/i], label: 'Flashcards' },
-    { id: 'cheatSheet', patterns: [/cheat sheet|last minute|formula sheet/i], label: 'Cheat Sheet' },
-    { id: 'quiz', patterns: [/interactive quiz|challenge mode|test me/i], label: 'Interactive Quiz' },
-    { id: 'twoMark', patterns: [/2 ?mark|two mark|part a\b/i], label: '2-Mark Answer' },
-    { id: 'sixteenMark', patterns: [/16 ?mark|15 ?mark|five ?mark|five mark|long answer|part b\b|university exam format|semester exam style/i], label: '16-Mark Answer' },
-    { id: 'revisionNotes', patterns: [/revision notes|revise|revision sheet|study notes/i], label: 'Revision Notes' },
-    { id: 'mnemonics', patterns: [/mnemonic|memory trick|acronym|easy to remember/i], label: 'Mnemonics' },
-    { id: 'dryRun', patterns: [/dry run|trace|walk through|step by step solution|trace table/i], label: 'Dry Run' },
-    { id: 'pseudocode', patterns: [/pseudocode|pseudo code/i], label: 'Pseudocode' },
-    { id: 'glossary', patterns: [/glossary|definition|define|what is|meaning of/i], label: 'Glossary / Definitions' },
-    { id: 'faq', patterns: [/faqs|faq|common questions about/i], label: 'FAQs' },
-    { id: 'trueFalse', patterns: [/true or false|true\/false|true-false/i], label: 'True/False' },
-    { id: 'fillBlanks', patterns: [/fill in the blanks|fill-in/i], label: 'Fill in the Blanks' },
-    { id: 'matchFollowing', patterns: [/match the following|match the/i], label: 'Match the Following' },
-    { id: 'differenceTable', patterns: [/difference between|vs\.?|versus|compare .* and|differences/i], label: 'Difference Table' },
-    { id: 'comparisonTable', patterns: [/comparison table|feature comparison|compare /i], label: 'Comparison Table' },
-    { id: 'caseStudy', patterns: [/case study|real world example|industry example|application in/i], label: 'Case Study' },
-    { id: 'flowchart', patterns: [/flowchart|flow chart|diagram of|mermaid flowchart/i], label: 'Flowchart' },
-    { id: 'mindmap', patterns: [/mind map|mindmap|concept map|mermaid mind/i], label: 'Mind Map' },
-    { id: 'sequenceDiagram', patterns: [/sequence diagram|mermaid sequenc|handshake .* diagram/i], label: 'Sequence Diagram' },
-    { id: 'decisionTree', patterns: [/decision tree|decision table/i], label: 'Decision Tree' },
-    { id: 'code', patterns: [/write code|code for|implement [a-z]|c\+\+ code|java code|python code|coding problem/i], label: 'Code' },
-    { id: 'ascii', patterns: [/ascii diagram|ascii tree|ascii art diagram/i], label: 'ASCII Diagram' },
-    { id: 'formulaSheet', patterns: [/formula/i], label: 'Formula Sheet' },
-    { id: 'proof', patterns: [/proof|prove that|theorem/i], label: 'Proof' },
-    { id: 'stepByStep', patterns: [/step ?by ?step|detailed explanation|explain in steps/i], label: 'Step-by-Step' },
-    { id: 'analogy', patterns: [/analogy|like a|as if|compare to .* in simple/i], label: 'Analogy' },
-    { id: 'eli5', patterns: [/eli5|explain like i'?m 5|child|simple terms|toddler/i], label: 'ELI5' },
-    { id: 'story', patterns: [/story|as a story|tell me .* like a story/i], label: 'Story' },
-    { id: 'swot', patterns: [/swot|pestle|porter/i], label: 'Business Analysis' },
-    { id: 'rapidFire', patterns: [/rapid fire|quick questions|one-liner|one line/i], label: 'Rapid Fire' },
-    { id: 'interview', patterns: [/interview questions|viva questions|viva voce/i], label: 'Interview / Viva' },
-    { id: 'labRecord', patterns: [/lab record|experiment|apparatus|observation/i], label: 'Lab Record' },
-    { id: 'selfAssessment', patterns: [/self assessment|assess me|evaluate my/i], label: 'Self Assessment' },
-    { id: 'mistakeAnalysis', patterns: [/mistake analysis|common mistakes|pitfalls|traps/i], label: 'Mistake Analysis' },
-    { id: 'examAnswer', patterns: [/exam answer|exam style|gate style|upsc|neet|jee|board exam/i], label: 'Exam Answer' },
+    { id: 'mcq', patterns: [/mcq|multiple choic|quiz mode/i], label: 'MCQs', selectable: true },
+    { id: 'flashcards', patterns: [/flashcard|flash notes|recall/i], label: 'Flashcards', selectable: true },
+    { id: 'quiz', patterns: [/interactive quiz|challenge mode|test me|quiz me/i], label: 'Interactive Quiz', selectable: true },
+    { id: 'trueFalse', patterns: [/true or false|true\/false|true-false/i], label: 'True/False', selectable: true },
+    { id: 'fillBlanks', patterns: [/fill in the blanks|fill-in/i], label: 'Fill in the Blanks', selectable: true },
+    { id: 'matchFollowing', patterns: [/match the following|match the/i], label: 'Match the Following', selectable: true },
+    { id: 'rapidFire', patterns: [/rapid fire|quick questions|one-liner|one line/i], label: 'Rapid Fire', selectable: true },
+    { id: 'selfAssessment', patterns: [/self assessment|assess me|evaluate my/i], label: 'Self Assessment', selectable: true },
+    // Automatic formats — the AI uses these when it decides they fit the
+    // explanation; they are NOT user-choosable.
+    { id: 'cheatSheet', patterns: [/cheat sheet|last minute|summary sheet/i], label: 'Cheat Sheet', selectable: false },
+    { id: 'twoMark', patterns: [/2 ?mark|two mark|part a\b/i], label: '2-Mark Answer', selectable: false },
+    { id: 'sixteenMark', patterns: [/16 ?mark|15 ?mark|five ?mark|five mark|long answer|part b\b|university exam format|semester exam style/i], label: '16-Mark Answer', selectable: false },
+    { id: 'revisionNotes', patterns: [/revision notes|revise|revision sheet/i], label: 'Revision Notes', selectable: false },
+    { id: 'mnemonics', patterns: [/mnemonic|memory trick|acronym|easy to remember/i], label: 'Mnemonics', selectable: false },
+    { id: 'dryRun', patterns: [/dry run|trace|walk through|trace table/i], label: 'Dry Run', selectable: false },
+    { id: 'pseudocode', patterns: [/pseudocode|pseudo code/i], label: 'Pseudocode', selectable: false },
+    { id: 'glossary', patterns: [/glossary|meaning of/i], label: 'Glossary / Definitions', selectable: false },
+    { id: 'faq', patterns: [/faqs|common questions about/i], label: 'FAQs', selectable: false },
+    { id: 'differenceTable', patterns: [/difference between|vs\.?|versus|differences/i], label: 'Difference Table', selectable: false },
+    { id: 'comparisonTable', patterns: [/comparison table|feature comparison/i], label: 'Comparison Table', selectable: false },
+    { id: 'caseStudy', patterns: [/case study|real world example|industry example/i], label: 'Case Study', selectable: false },
+    { id: 'flowchart', patterns: [/flowchart|flow chart|steps of .* process/i], label: 'Flowchart', selectable: false },
+    { id: 'mindmap', patterns: [/mind map|mindmap|concept map/i], label: 'Mind Map', selectable: false },
+    { id: 'sequenceDiagram', patterns: [/sequence diagram|step-by-step flow of|handshake .* diagram/i], label: 'Sequence Diagram', selectable: false },
+    { id: 'decisionTree', patterns: [/decision tree|decision table/i], label: 'Decision Tree', selectable: false },
+    { id: 'code', patterns: [/write code|code for|implement [a-z]|c\+\+ code|java code|python code|coding problem/i], label: 'Code', selectable: false },
+    { id: 'ascii', patterns: [/ascii diagram|ascii tree|ascii art diagram/i], label: 'ASCII Diagram', selectable: false },
+    { id: 'formulaSheet', patterns: [/formula|equations of|equations for/i], label: 'Formula Sheet', selectable: false },
+    { id: 'proof', patterns: [/proof|prove that|theorem/i], label: 'Proof', selectable: false },
+    { id: 'stepByStep', patterns: [/step ?by ?step|explain in steps|detailed explanation/i], label: 'Step-by-Step', selectable: false },
+    { id: 'analogy', patterns: [/analogy|like a|as if|similar to a/i], label: 'Analogy', selectable: false },
+    { id: 'eli5', patterns: [/eli5|explain like i'?m 5|simple terms|toddler/i], label: 'ELI5', selectable: false },
+    { id: 'story', patterns: [/story|as a story|tell me .* like a story/i], label: 'Story', selectable: false },
+    { id: 'swot', patterns: [/swot|pestle|porter/i], label: 'Business Analysis', selectable: false },
+    { id: 'interview', patterns: [/interview questions|viva questions|viva voce/i], label: 'Interview / Viva', selectable: false },
+    { id: 'labRecord', patterns: [/lab record|experiment .* procedure|apparatus|observation/i], label: 'Lab Record', selectable: false },
+    { id: 'mistakeAnalysis', patterns: [/mistake analysis|common mistakes|pitfalls|traps/i], label: 'Mistake Analysis', selectable: false },
+    { id: 'examAnswer', patterns: [/exam answer|exam style|gate style|upsc|neet|jee|board exam/i], label: 'Exam Answer', selectable: false },
 ];
 
-/** Detect all requested formats in a query (a student can combine several). */
+/** Detect all formats a query explicitly requests (a student can combine several). */
 export function detectFormats(query: string): TextFormat[] {
     const hits: TextFormat[] = [];
     for (const rule of FORMAT_RULES) {
@@ -105,6 +113,11 @@ export function detectFormats(query: string): TextFormat[] {
         }
     }
     return hits;
+}
+
+/** Quiz-style formats the student can pick in the "Answer as…" picker. */
+export function selectableFormats(): FormatRule[] {
+    return FORMAT_RULES.filter((r) => r.selectable);
 }
 
 // ============================================================================

@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores';
 import { sendMessage, setColabUrl, getColabUrl } from '@/services/studygpt.service';
 import { getStudentQuickFacts } from '@/services/studyContext';
 import { useAUResultsStore } from '@/stores/auResultsStore';
-import { FORMAT_RULES } from '@/services/formatEngine';
+import { selectableFormats } from '@/services/formatEngine';
 import {
     Send,
     Paperclip,
@@ -529,13 +529,14 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                         </div>
                     )}
 
-                    {/* Answer-as format selector: the full ~200-format catalog is
-                        normalized into grouped picks; the chosen label is
-                        appended to the query so the AI answers in that format */}
+                    {/* Quiz-mode selector: only quiz-style formats are
+                        user-choosable; all other formats (cheat sheet,
+                        2-mark/16-mark, flowcharts, code …) are picked
+                        automatically by the AI when they fit the answer */}
                     {showFormatPicker ? (
                         <div className="mb-3 p-3 bg-white/5 border border-white/10 rounded-2xl">
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-medium text-slate-300">Answer as…</span>
+                                <span className="text-xs font-medium text-slate-300">Quiz me…</span>
                                 <button
                                     onClick={() => setShowFormatPicker(false)}
                                     className="text-xs text-cyan-400 hover:text-cyan-300"
@@ -543,30 +544,19 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                                     Done
                                 </button>
                             </div>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5 max-h-[220px] overflow-y-auto scrollbar-hide">
-                                {['Text & Notes', 'Exams', 'Programming', 'Visual & Diagrams', 'Tables & Business', 'Learning & Modes'].map(group => (
-                                    <React.Fragment key={group}>
-                                        <div className="col-span-3 sm:col-span-4 md:col-span-6 text-[10px] uppercase tracking-wider text-slate-500 mt-1 mb-0.5">
-                                            {group}
-                                        </div>
-                                        {FORMAT_RULES.filter(r => {
-                                            if (group === 'Text &amp; Notes') return ['mcq', 'flashcards', 'cheatSheet', 'revisionNotes', 'mnemonics', 'quiz', 'twoMark', 'sixteenMark', 'glossary', 'faq', 'trueFalse', 'fillBlanks', 'matchFollowing', 'caseStudy', 'rapidFire', 'interview', 'viva', 'labRecord', 'selfAssessment', 'mistakeAnalysis'].includes(r.id);
-                                            if (group === 'Exams') return ['twoMark', 'sixteenMark', 'examAnswer', 'rapidFire'].includes(r.id);
-                                            if (group === 'Programming') return ['code', 'pseudocode', 'dryRun', 'ascii'].includes(r.id);
-                                            if (group === 'Visual &amp; Diagrams') return ['flowchart', 'mindmap', 'sequenceDiagram', 'decisionTree', 'ascii'].includes(r.id);
-                                            if (group === 'Tables &amp; Business') return ['comparisonTable', 'differenceTable', 'swot', 'caseStudy', 'formulaSheet'].includes(r.id);
-                                            return ['eli5', 'analogy', 'story', 'stepByStep'].includes(r.id);
-                                        }).map(r => (
-                                            <button
-                                                key={`${group}-${r.id}`}
-                                                onClick={() => { setAnswerFormat(r.label); setShowFormatPicker(false); }}
-                                                className="px-2 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300 hover:bg-white/10 transition-colors truncate"
-                                            >
-                                                {r.label}
-                                            </button>
-                                        ))}
-                                    </React.Fragment>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                                {selectableFormats().map(r => (
+                                    <button
+                                        key={r.id}
+                                        onClick={() => { setAnswerFormat(r.label); setShowFormatPicker(false); }}
+                                        className="px-2 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300 hover:bg-white/10 transition-colors truncate"
+                                    >
+                                        {r.label}
+                                    </button>
                                 ))}
+                            </div>
+                            <div className="mt-2 text-[11px] text-slate-500">
+                                All other answer styles (2-mark, 16-mark, cheat sheet, flowchart, code, ELI5 …) are applied automatically by StudyGPT when they fit your question.
                             </div>
                             {answerFormat && (
                                 <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
@@ -605,7 +595,7 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
 
                         <button
                             onClick={() => setShowFormatPicker(v => !v)}
-                            title="Answer as… (MCQ, flashcards, 2-mark, flowchart …)"
+                            title="Quiz yourself (MCQ, flashcards, true/false, rapid fire …) — other styles are chosen by the AI automatically"
                             className={cn(
                                 'p-2.5 rounded-xl transition-colors',
                                 answerFormat ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-white hover:bg-white/10'

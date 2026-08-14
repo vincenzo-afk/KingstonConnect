@@ -791,7 +791,7 @@ function respondTeacher(content: string): string {
     const formatted = applyFormats(teacherBlock, formats);
     return `${formatted}${buildModeInstructions(content)}
 
-*Tip: if you want a deeper answer on any of these, ask me directly — e.g. "summarize the Database Design Project" or "explain the Process Scheduling graded assignment". You can also pick a format with the sparkles button (MCQs, flashcards, 2-mark answer, flowchart …).*`;
+*Tip: if you want a deeper answer on any of these, ask me directly — e.g. "summarize the Database Design Project" or "explain the Process Scheduling graded assignment". You can also pick a quiz mode with the sparkles button (MCQs, flashcards, true/false, rapid fire …) — all other answer styles are chosen automatically when they fit.*`;
 }
 
 // Fallback local AI response when no backend is available
