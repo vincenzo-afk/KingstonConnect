@@ -18,6 +18,29 @@
   <link rel="manifest" href="/manifest.json" />
 
   <title>KingstonConnect - College Management Platform</title>
+<script>
+  // Apply the persisted theme BEFORE React hydrates to prevent a flash of the wrong mode.
+  // Matches the zustand persist key used in src/stores/uiStore.ts ('kingston-ui').
+  (function () {
+    try {
+      var raw = localStorage.getItem('kingston-ui');
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        var theme = parsed && parsed.state && parsed.state.theme;
+        if (theme === 'light' || theme === 'dark') {
+          document.documentElement.classList.add(theme);
+          if (theme === 'light') {
+            document.documentElement.classList.remove('dark');
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', '#ffffff');
+          } else {
+            document.documentElement.classList.remove('light');
+          }
+        }
+      }
+    } catch (e) { /* keep default */ }
+  })();
+</script>
 </head>
 
 <body>

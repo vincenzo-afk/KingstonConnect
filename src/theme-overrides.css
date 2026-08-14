@@ -1,0 +1,222 @@
+/* ============================================================================
+   Light-mode overrides for the hardcoded dark-theme classes.
+   The app was built dark-first: pages/components use fixed dark colors
+   (bg-white/5, text-slate-400, …). When the user switches to light mode,
+   `.light` is placed on <html> and the rules below remap those fixed colors
+   to light equivalents so every page adapts without touching ~40 files.
+   ============================================================================ */
+
+.light {
+  color-scheme: light;
+}
+
+/* --- Backgrounds: translucent white-on-dark → translucent dark-on-light --- */
+.light .bg-white\/5 {
+  background-color: oklch(0.2 0 0 / 5%);
+}
+.light .bg-white\/10 {
+  background-color: oklch(0.2 0 0 / 8%);
+}
+.light .bg-white\/20 {
+  background-color: oklch(0.2 0 0 / 12%);
+}
+/* class `white/5` used as background shorthand */
+.light .white\/5,
+.light [class*="white/5"] {
+  background-color: oklch(0.2 0 0 / 5%);
+}
+.light .white\/10,
+.light [class*="white/10"] {
+  background-color: oklch(0.2 0 0 / 8%);
+}
+.light .white\/20,
+.light [class*="white/20"] {
+  background-color: oklch(0.2 0 0 / 12%);
+}
+
+/* --- Borders that use white alpha --- */
+.light .border-white\/5 {
+  border-color: oklch(0.2 0 0 / 8%);
+}
+.light .border-white\/10 {
+  border-color: oklch(0.2 0 0 / 12%);
+}
+.light .border-white\/20 {
+  border-color: oklch(0.2 0 0 / 18%);
+}
+.light [class*="border-white/"] {
+  border-color: oklch(0.2 0 0 / 12%);
+}
+
+/* --- Pure white text: darken in light mode so it stays readable --- */
+.light .text-white {
+  color: oklch(0.32 0 0);
+}
+
+/* --- Text: light slate on dark → darker slate on light for readability --- */
+.light .text-slate-300 {
+  color: oklch(0.4 0.01 250);
+}
+.light .text-slate-400 {
+  color: oklch(0.45 0.01 250);
+}
+.light .text-slate-500 {
+  color: oklch(0.52 0.01 250);
+}
+
+/* --- Colored alpha tints (badge/chip/icon backgrounds) get solid pastel on light cards --- */
+.light [class*="bg-cyan-500/"],
+.light [class*="from-cyan-500/"],
+.light [class*="to-cyan-500/"] {
+  background-color: oklch(0.93 0.04 210);
+}
+.light [class*="bg-blue-500/"],
+.light [class*="from-blue-500/"],
+.light [class*="to-blue-500/"] {
+  background-color: oklch(0.93 0.04 260);
+}
+.light [class*="bg-green-500/"],
+.light [class*="from-green-500/"],
+.light [class*="bg-emerald-500/"],
+.light [class*="from-emerald-500/"] {
+  background-color: oklch(0.93 0.05 155);
+}
+.light [class*="bg-red-500/"],
+.light [class*="from-red-500/"],
+.light [class*="bg-rose-500/"],
+.light [class*="from-rose-500/"] {
+  background-color: oklch(0.93 0.05 20);
+}
+.light [class*="bg-yellow-500/"],
+.light [class*="from-yellow-500/"],
+.light [class*="bg-amber-500/"],
+.light [class*="from-amber-500/"] {
+  background-color: oklch(0.94 0.06 90);
+}
+.light [class*="bg-orange-500/"],
+.light [class*="from-orange-500/"] {
+  background-color: oklch(0.94 0.06 55);
+}
+.light [class*="bg-purple-500/"],
+.light [class*="from-purple-500/"],
+.light [class*="bg-violet-500/"],
+.light [class*="from-violet-500/"] {
+  background-color: oklch(0.93 0.04 300);
+}
+.light [class*="bg-pink-500/"],
+.light [class*="from-pink-500/"],
+.light [class*="to-pink-500/"] {
+  background-color: oklch(0.93 0.04 340);
+}
+.light [class*="bg-indigo-500/"],
+.light [class*="from-indigo-500/"],
+.light [class*="bg-teal-500/"],
+.light [class*="from-teal-500/"] {
+  background-color: oklch(0.93 0.04 240);
+}
+.light [class*="border-cyan-500/"] {
+  border-color: oklch(0.6 0.13 210);
+}
+.light [class*="shadow-cyan-500/"] {
+  box-shadow: 0 10px 15px -3px oklch(0.6 0.13 210 / 20%);
+}
+
+/* --- Accent colors designed for dark cards: darken for light cards --- */
+.light .text-cyan-400 { color: oklch(0.5 0.13 210); }
+.light .text-cyan-300 { color: oklch(0.55 0.12 210); }
+.light .text-blue-400  { color: oklch(0.5 0.14 260); }
+.light .text-blue-300  { color: oklch(0.55 0.13 260); }
+.light .text-green-400 { color: oklch(0.5 0.12 150); }
+.light .text-emerald-400 { color: oklch(0.5 0.12 160); }
+.light .text-red-400   { color: oklch(0.55 0.18 25); }
+.light .text-rose-400  { color: oklch(0.55 0.16 10); }
+.light .text-yellow-400 { color: oklch(0.6 0.13 85); }
+.light .text-amber-400 { color: oklch(0.6 0.14 70); }
+.light .text-orange-400 { color: oklch(0.6 0.14 45); }
+.light .text-purple-400 { color: oklch(0.55 0.14 300); }
+.light .text-violet-400 { color: oklch(0.55 0.14 290); }
+.light .text-pink-400  { color: oklch(0.58 0.15 345); }
+.light .text-indigo-400 { color: oklch(0.52 0.13 270); }
+.light .text-teal-400  { color: oklch(0.52 0.1 195); }
+
+/* --- Gradient stops that used dark slate --- */
+.light .from-slate-950 {
+  --tw-gradient-from: oklch(0.96 0.005 250);
+  --tw-gradient-via-position: initial;
+  --tw-gradient-to: oklch(0.96 0.005 250 / 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.light .from-slate-900 {
+  --tw-gradient-from: oklch(0.97 0.005 250);
+  --tw-gradient-via-position: initial;
+  --tw-gradient-to: oklch(0.97 0.005 250 / 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.light .via-slate-900 {
+  --tw-gradient-via: oklch(0.95 0.005 250);
+}
+.light .to-slate-800 {
+  --tw-gradient-to: oklch(0.94 0.005 250);
+}
+.light .to-slate-900 {
+  --tw-gradient-to: oklch(0.93 0.005 250);
+}
+.light .to-slate-950 {
+  --tw-gradient-to: oklch(0.92 0.005 250);
+}
+
+/* --- Common dark-only background fallbacks --- */
+.light .bg-slate-950 {
+  background-color: oklch(0.97 0.005 250);
+}
+.light .bg-slate-900 {
+  background-color: oklch(0.96 0.005 250);
+}
+.light .bg-slate-800 {
+  background-color: oklch(0.95 0.005 250);
+}
+.light .bg-slate-700 {
+  background-color: oklch(0.9 0.005 250);
+}
+
+/* --- Hardcoded hex dark surfaces (Sidebar #0f1419/#1a2332, page panels) --- */
+.light .bg-\[\#0f1419\],
+.light .bg-\[\#0f1419\]\/95 {
+  background-color: oklch(0.985 0.003 250);
+}
+.light .bg-\[\#1a2332\] {
+  background-color: oklch(0.975 0.005 250);
+}
+.light .bg-\[\#131b24\] {
+  background-color: oklch(0.965 0.005 250);
+}
+.light .bg-\[\#0d1419\] {
+  background-color: oklch(0.96 0.005 250);
+}
+.light .bg-\[\#0a0f14\] {
+  background-color: oklch(0.955 0.005 250);
+}
+.light .border-\[\#131b24\] {
+  border-color: oklch(0.2 0 0 / 10%);
+}
+.light .border-\[\#0a0f14\] {
+  border-color: oklch(0.2 0 0 / 10%);
+}
+.light .text-\[\#0369A1\],
+.light .text-\[\#024e85\] {
+  color: oklch(0.45 0.12 250);
+}
+.light .text-\[\#0891B2\] {
+  color: oklch(0.5 0.11 220);
+}
+.light .text-\[\#0284C7\] {
+  color: oklch(0.5 0.12 250);
+}
+.light .text-\[\#0E7490\] {
+  color: oklch(0.48 0.1 220);
+}
+
+/* --- Dark mode stays untouched (default) — keep defaults explicit --- */
+.dark {
+  color-scheme: dark;
+}

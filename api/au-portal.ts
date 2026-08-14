@@ -296,20 +296,42 @@ async function handleSubmit(body: {
   });
   if (tokenName) params.set(tokenName, tokenValue ?? "");
 
-  const resultHtml = await fetchUrl(STUDENTS_CORNER, {
-    method: "POST",
-    body: params.toString(),
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Origin: "https://coe.annauniv.edu",
-      Referer: LOGIN_PAGE,
-      ...(phpsessid ? { Cookie: `PHPSESSID=${phpsessid}` } : {}),
-    },
-  });
+  // Submit with retries: the portal's PHP stack is flaky (5xx/aborts are
+  // common). Up to 3 attempts; on INVALID_CAPTCHA we re-issue a fresh
+  // session + captcha image so the student's answer is checked against a
+  // brand-new captcha they can solve, which also separates captcha failures
+  // from genuine credential failures.
+  let lastHtml = "";
+  let attempts = 0;
+  let err: Error | null = null;
+  while (attempts < 3) {
+    attempts += 1;
+    try {
+      lastHtml = await fetchUrl(STUDENTS_CORNER, {
+        method: "POST",
+        body: params.toString(),
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Origin: "https://coe.annauniv.edu",
+          Referer: LOGIN_PAGE,
+          ...(phpsessid ? { Cookie: `PHPSESSID=${phpsessid}` } : {}),
+        },
+      });
+      err = null;
+      break;
+    } catch (e) {
+      err = e as Error;
+      // Wait briefly before retrying (300ms → 700ms → 1100ms)
+      await new Promise((r) => setTimeout(r, 300 + attempts * 400));
+    }
+  }
+  if (err || !lastHtml) {
+    throw err ?? new Error("The portal did not respond after multiple attempts");
+  }
 
   // Detect common portal errors
-  if (/INVALID|NOT FOUND|captcha|no result|not exist/i.test(resultHtml) && !/<table/i.test(resultHtml)) {
-    const clean = resultHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (/INVALID|NOT FOUND|captcha|no result|not exist/i.test(lastHtml) && !/<table/i.test(lastHtml)) {
+    const clean = lastHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const snippet = clean.slice(0, 600);
     // Order matters: credential error pages also contain the word "invalid".
     if (/register number|date of birth|profile not found/i.test(snippet)) {
@@ -330,12 +352,16 @@ async function handleSubmit(body: {
           "The captcha code was incorrect, or the register number / DOB does not match. Please re-enter the captcha carefully (and verify your DOB format: DD-MM-YYYY) and try again.",
         // Exact portal wording, shown only in dev/debug builds for diagnosis
         rawSnippet: snippet.slice(0, 200),
+        // Provide a fresh session + new captcha image so a retry is checked
+        // against a brand-new captcha (old captcha answers can never match
+        // once the portal regenerates them).
+        newSession: await handleInit(),
       };
     }
     return { error: "PORTAL_ERROR", message: snippet || "The portal returned an unexpected page." };
   }
 
-  return parseResults(resultHtml);
+  return parseResults(lastHtml);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

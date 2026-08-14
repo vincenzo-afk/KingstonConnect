@@ -33,6 +33,7 @@ export interface AUSessionInit {
   captchaMime: string;
   phpsessid: string;
   hidden?: Record<string, string>;
+  _replaceCurrent?: boolean;
 }
 
 /** In-memory AU portal session cookie, kept for the lifetime of the page. */
@@ -46,6 +47,8 @@ export function getAUSessionId(): string {
 export interface AUFetchError {
   error: string;
   message: string;
+  rawSnippet?: string;
+  newSession?: AUSessionInit;
 }
 
 function isFetchError(payload: unknown): payload is AUFetchError {
@@ -104,6 +107,15 @@ export async function fetchAUResults(params: {
     throw new Error(msg);
   }
   const json = await res.json();
-  if (isFetchError(json)) throw new Error(json.message);
+  if (isFetchError(json)) {
+    // On a captcha/identity failure the server also issues a FRESH session
+    // (new captcha image + new session cookie). Surfacing it lets the UI
+    // swap in the new captcha automatically so the next retry can succeed.
+    if (json.newSession) {
+      if (json.newSession.phpsessid) auSessionId = json.newSession.phpsessid;
+      throw json;
+    }
+    throw new Error(json.message);
+  }
   return json as AUParsedSemester;
 }

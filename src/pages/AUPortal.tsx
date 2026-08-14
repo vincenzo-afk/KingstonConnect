@@ -5,7 +5,7 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { initAUSession, fetchAUResults, type AUSessionInit, type AUParsedSemester } from '@/services/auPortal.service';
+import { initAUSession, fetchAUResults, type AUSessionInit, type AUParsedSemester, type AUFetchError } from '@/services/auPortal.service';
 import {
     Calendar,
     Award,
@@ -158,7 +158,15 @@ const AUPortalPage: React.FC = () => {
             // Fresh captcha for the next fetch
             await loadSession();
         } catch (e) {
-            setFetchError(e instanceof Error ? e.message : 'Unknown error while fetching results.');
+            // The service attaches a fresh portal session (new captcha image
+            // + session cookie) to captcha/identity failures so the retry is
+            // checked against a brand-new captcha.
+            const err = e as AUFetchError | undefined;
+            if (err?.newSession) {
+                setSessionState(err.newSession);
+                setCaptchaCode('');
+            }
+            setFetchError(err?.message || (e instanceof Error ? e.message : 'Unknown error while fetching results.'));
         } finally {
             setFetchingResults(false);
         }
