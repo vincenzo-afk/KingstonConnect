@@ -19,6 +19,19 @@
 
   <title>KingstonConnect - College Management Platform</title>
 <script>
+  // One-time cleanup: the app used to seed a demo account (John Doe / 21BCE1234)
+  // in localStorage. Remove it so every student sees only their own data.
+  try {
+    var auRaw = localStorage.getItem('kingston-auth');
+    if (auRaw) {
+      var auParsed = JSON.parse(auRaw);
+      var auUser = auParsed && auParsed.state && auParsed.state.user;
+      if (auUser && (auUser.name === 'John Doe' || auUser.rollNumber === '21BCE1234')) {
+        localStorage.removeItem('kingston-auth');
+      }
+    }
+  } catch (e) { /* keep default */ }
+
   // Apply the persisted theme BEFORE React hydrates to prevent a flash of the wrong mode.
   // Matches the zustand persist key used in src/stores/uiStore.ts ('kingston-ui').
   (function () {

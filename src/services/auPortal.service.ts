@@ -60,6 +60,23 @@ function isFetchError(payload: unknown): payload is AUFetchError {
   );
 }
 
+async function readJson(res: Response): Promise<unknown> {
+  const ct = res.headers.get('content-type') || '';
+  const text = await res.text();
+  if (!ct.includes('application/json')) {
+    throw new Error(
+      'The results service is not available right now (the server returned an unexpected page). Please try again in a moment.'
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      'The results service returned data we could not read. Please try again in a moment.'
+    );
+  }
+}
+
 function assertOk(res: Response): void {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
@@ -68,7 +85,7 @@ function assertOk(res: Response): void {
 export async function initAUSession(): Promise<AUSessionInit> {
   const res = await fetch('/api/au-portal?action=init');
   assertOk(res);
-  const json = await res.json();
+  const json = await readJson(res);
   if (isFetchError(json)) throw new Error(json.message);
   const init = json as AUSessionInit;
   if (init.phpsessid) auSessionId = init.phpsessid;
@@ -99,14 +116,14 @@ export async function fetchAUResults(params: {
     // Try to surface the server error message
     let msg = `HTTP ${res.status}`;
     try {
-      const json = await res.json();
+      const json = await readJson(res);
       if (isFetchError(json)) msg = json.message;
     } catch {
       /* ignore */
     }
     throw new Error(msg);
   }
-  const json = await res.json();
+  const json = await readJson(res);
   if (isFetchError(json)) {
     // On a captcha/identity failure the server also issues a FRESH session
     // (new captcha image + new session cookie). Surfacing it lets the UI

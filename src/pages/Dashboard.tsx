@@ -1,23 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
+import { useAUResultsStore } from '@/stores/auResultsStore';
+import { useAttendanceStore } from '@/stores/attendanceStore';
 import {
     UPCOMING_DEADLINES,
-    RECENT_ACTIVITY,
-    ATTENDANCE_STATS,
 } from '@/data/studentData';
+import { getAssignmentsStore } from '@/stores/assignmentsStore';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Avatar } from '@/components/ui/Avatar';
 import {
     Award, UserCheck, BookOpen, Target, Zap, BookMarked, Users,
-    GraduationCap, ClipboardList, Building2, Clock
+    GraduationCap, ClipboardList, Building2, Clock, Check
 } from 'lucide-react';
-import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    Legend, ResponsiveContainer
-} from 'recharts';
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -30,35 +26,46 @@ const formatDate = (date: string) => {
     });
 };
 
-const getAttendanceColor = (percentage: number) => {
-    if (percentage >= 75) return 'text-green-400';
-    if (percentage >= 65) return 'text-yellow-400';
-    return 'text-red-400';
-};
-
 // =============================================================================
 // STUDENT DASHBOARD
 // =============================================================================
 
 const StudentDashboard: React.FC = () => {
-    const { user } = useAuthStore();
+    const auResults = useAUResultsStore();
+    const attendance = useAttendanceStore();
 
+    const cgpa = auResults.getCGPA();
+    const credits = auResults.getTotalCredits();
+    const overallAttendance = attendance.overallPercentage;
+    const attendanceTotal = attendance.overallTotal;
+    const attendancePresent = attendance.overallPresent;
+    const trend =
+        attendanceTotal >= 10
+            ? attendancePresent - Math.round(attendanceTotal * 0.8)
+            : 0;
+
+    const weak = auResults.getWeakSubjects();
+
+    // Real upcoming deadlines come from the Assignments page; the recent
+    // activity feed is derived from submitted/graded assignments (no demo
+    // data).
     const upcomingDeadlines = UPCOMING_DEADLINES;
-
-    const ACTIVITY_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
-        notes: BookMarked,
-        graded: Award,
-        attendance: UserCheck,
-        result: Award,
-    };
-
-    const recentActivity = RECENT_ACTIVITY.map((a) => ({
-        id: a.id,
-        title: a.title,
-        description: a.description,
-        time: a.time,
-        icon: ACTIVITY_ICON[a.type] ?? BookMarked,
-    }));
+    const recentActivity = getAssignmentsStore()
+        .filter((a) => a.status === 'graded' || a.status === 'submitted')
+        .slice(-5)
+        .map((a, idx) => ({
+            id: `${a.id}-${idx}`,
+            type: 'graded' as const,
+            title: a.title,
+            description:
+                a.status === 'graded'
+                    ? `${a.subject}${a.grade !== undefined && a.marks ? ` — ${a.grade}/${a.marks}` : ''}`
+                    : `${a.subject} — submitted${a.submittedAt ? ` on ${formatDate(a.submittedAt)}` : ''}`,
+            time: a.submittedAt
+                ? new Date(a.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : '',
+        }))
+        .reverse();
 
     return (
         <div className="space-y-6">
@@ -66,31 +73,45 @@ const StudentDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <StatCard
                     title="CGPA"
-                    value={user?.cgpa?.toFixed(1) || '0.0'}
+                    value={cgpa !== null ? String(cgpa) : '—'}
+                    subtitle={cgpa === null ? 'Fetch from AU Portal' : undefined}
                     icon={<Award className="w-6 h-6" />}
-                    trend={{ value: 5, positive: true, label: 'from last sem' }}
                     variant="primary"
                 />
                 <StatCard
                     title="Attendance"
-                    value={`${ATTENDANCE_STATS.overall}%`}
+                    value={
+                        attendanceTotal > 0
+                            ? `${overallAttendance}%`
+                            : '—'
+                    }
+                    subtitle={
+                        attendanceTotal > 0
+                            ? `${attendancePresent}/${attendanceTotal} classes`
+                            : 'Start recording classes'
+                    }
                     icon={<UserCheck className="w-6 h-6" />}
-                    trend={{
-                        value: ATTENDANCE_STATS.overall - ATTENDANCE_STATS.lastMonth,
-                        positive: ATTENDANCE_STATS.overall >= ATTENDANCE_STATS.lastMonth,
-                        label: 'this month',
-                    }}
+                    trend={
+                        attendanceTotal >= 10
+                            ? {
+                                  value: trend,
+                                  positive: trend >= 0,
+                                  label: 'vs 80% baseline',
+                              }
+                            : undefined
+                    }
                     variant="success"
                 />
                 <StatCard
                     title="Credits"
-                    value={user?.credits || 0}
+                    value={credits || 0}
                     icon={<BookOpen className="w-6 h-6" />}
                     variant="default"
                 />
                 <StatCard
-                    title="Rank"
-                    value={`#${user?.rank || 0}`}
+                    title="Weak Subjects"
+                    value={weak.length || 0}
+                    subtitle={weak.length ? 'B or below — review' : 'None detected'}
                     icon={<Target className="w-6 h-6" />}
                     variant="warning"
                 />
@@ -141,20 +162,30 @@ const StudentDashboard: React.FC = () => {
                 <Card>
                     <h3 className="text-lg font-semibold text-white mb-4">Upcoming Deadlines</h3>
                     <div className="space-y-3">
-                        {upcomingDeadlines.map(deadline => (
-                            <div key={deadline.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-orange-500/20">
-                                        <Clock className="w-4 h-4 text-orange-400" />
+                        {upcomingDeadlines.length > 0 ? (
+                            upcomingDeadlines.map(deadline => (
+                                <div key={deadline.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-orange-500/20">
+                                            <Clock className="w-4 h-4 text-orange-400" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-white">{deadline.title}</p>
+                                            <p className="text-sm text-slate-400">{deadline.subject}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-medium text-white">{deadline.title}</p>
-                                        <p className="text-sm text-slate-400">{deadline.subject}</p>
-                                    </div>
+                                    <Badge variant="warning">{formatDate(deadline.dueDate)}</Badge>
                                 </div>
-                                <Badge variant="warning">{formatDate(deadline.dueDate)}</Badge>
+                            ))
+                        ) : (
+                            <div className="flex flex-col items-center text-center py-6 gap-2 text-slate-400">
+                                <ClipboardList className="w-6 h-6" />
+                                <p className="text-sm">No upcoming deadlines recorded.</p>
+                                <Link to="/assignments">
+                                    <Button variant="outline" size="sm">View assignments</Button>
+                                </Link>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </Card>
             </div>
@@ -163,21 +194,25 @@ const StudentDashboard: React.FC = () => {
             <Card>
                 <h3 className="text-lg font-semibold text-white mb-4">Recent Activity</h3>
                 <div className="space-y-3">
-                    {recentActivity.map(activity => {
-                        const Icon = activity.icon;
-                        return (
+                    {recentActivity.length > 0 ? (
+                        recentActivity.map(activity => (
                             <div key={activity.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors">
                                 <div className="p-2 rounded-lg bg-cyan-500/20">
-                                    <Icon className="w-4 h-4 text-cyan-400" />
+                                    <Check className="w-4 h-4 text-cyan-400" />
                                 </div>
-                                <div className="flex-1">
-                                    <p className="font-medium text-white">{activity.title}</p>
-                                    <p className="text-sm text-slate-400">{activity.description}</p>
-                                    <p className="text-xs text-slate-500 mt-1">{activity.time}</p>
+                                    <div className="flex-1">
+                                        <p className="font-medium text-white">{activity.title}</p>
+                                        <p className="text-sm text-slate-400">{activity.description}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{activity.time}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center text-center py-6 gap-2 text-slate-400">
+                            <Users className="w-6 h-6" />
+                            <p className="text-sm">No recent activity yet. Fetch your AU results, mark attendance, or upload notes to see your profile here.</p>
+                        </div>
+                    )}
                 </div>
             </Card>
         </div>
@@ -189,90 +224,64 @@ const StudentDashboard: React.FC = () => {
 // =============================================================================
 
 const TeacherDashboard: React.FC = () => {
-    const todaySchedule = [
-        { id: '1', time: '09:00 - 10:00', subject: 'Data Structures', section: 'CSE-A', room: 'A101' },
-        { id: '2', time: '11:00 - 12:00', subject: 'Algorithms', section: 'CSE-B', room: 'A102' },
-        { id: '3', time: '14:00 - 15:00', subject: 'DBMS', section: 'CSE-A', room: 'A103' },
-    ];
-
-    const atRiskStudents = [
-        { id: '1', name: 'John Doe', rollNumber: '21BCE1234', attendance: 62, cgpa: 6.2 },
-        { id: '2', name: 'Jane Smith', rollNumber: '21BCE1235', attendance: 58, cgpa: 5.8 },
-    ];
-
     return (
         <div className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <StatCard
-                    title="Total Classes"
-                    value="24"
-                    icon={<BookOpen className="w-6 h-6" />}
+                    title="Sections Managed"
+                    value="—"
+                    subtitle="Add sections below"
+                    icon={<Users className="w-6 h-6" />}
                     variant="primary"
                 />
                 <StatCard
                     title="Students"
-                    value="180"
+                    value="0"
+                    subtitle="Add students to roster"
                     icon={<Users className="w-6 h-6" />}
                     variant="success"
                 />
                 <StatCard
                     title="Avg Attendance"
-                    value="82%"
+                    value="—"
+                    subtitle="After marking attendance"
                     icon={<UserCheck className="w-6 h-6" />}
                     variant="warning"
                 />
                 <StatCard
                     title="Pending Tasks"
-                    value="8"
+                    value="0"
+                    subtitle="No pending items"
                     icon={<ClipboardList className="w-6 h-6" />}
                     variant="error"
                 />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Today's Schedule */}
-                <Card>
-                    <h3 className="text-lg font-semibold text-white mb-4">Today's Schedule</h3>
-                    <div className="space-y-3">
-                        {todaySchedule.map(slot => (
-                            <div key={slot.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                                <div>
-                                    <p className="font-medium text-white">{slot.subject}</p>
-                                    <p className="text-sm text-slate-400">{slot.section} • {slot.room}</p>
-                                </div>
-                                <Badge>{slot.time}</Badge>
-                            </div>
-                        ))}
+                <Card className="border-white/10">
+                    <div className="flex flex-col items-center text-center py-8 gap-3 text-slate-400">
+                        <Clock className="w-8 h-8" />
+                        <p className="text-sm max-w-sm">
+                            Today's schedule appears here once you add your classes
+                            in the Timetable page.
+                        </p>
+                        <Link to="/timetable">
+                            <Button variant="outline" size="sm">Manage timetable</Button>
+                        </Link>
                     </div>
                 </Card>
-
-                {/* At-Risk Students */}
-                <Card>
-                    <h3 className="text-lg font-semibold text-white mb-4">At-Risk Students</h3>
-                    <div className="space-y-3">
-                        {atRiskStudents.map(student => (
-                            <div key={student.id} className="p-3 rounded-xl bg-white/5">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar alt={student.name} size="sm" />
-                                        <div>
-                                            <p className="font-medium text-white">{student.name}</p>
-                                            <p className="text-sm text-slate-400">{student.rollNumber}</p>
-                                        </div>
-                                    </div>
-                                    <Badge variant="error">At Risk</Badge>
-                                </div>
-                                <div className="flex gap-4 text-sm">
-                                    <span className={getAttendanceColor(student.attendance)}>
-                                        Attendance: {student.attendance}%
-                                    </span>
-                                    <span className="text-yellow-400">
-                                        CGPA: {student.cgpa}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
+                <Card className="border-white/10">
+                    <div className="flex flex-col items-center text-center py-8 gap-3 text-slate-400">
+                        <Users className="w-8 h-8" />
+                        <p className="text-sm max-w-sm">
+                            At-risk students will be flagged automatically once
+                            you start recording attendance in the Attendance
+                            page.
+                        </p>
+                        <Link to="/attendance">
+                            <Button variant="outline" size="sm">Mark attendance</Button>
+                        </Link>
                     </div>
                 </Card>
             </div>
@@ -285,64 +294,48 @@ const TeacherDashboard: React.FC = () => {
 // =============================================================================
 
 const HODDashboard: React.FC = () => {
-    const departmentMetrics = [
-        { name: 'Section A', students: 60, avgAttendance: 85, avgCGPA: 8.2 },
-        { name: 'Section B', students: 58, avgAttendance: 82, avgCGPA: 7.9 },
-        { name: 'Section C', students: 62, avgAttendance: 88, avgCGPA: 8.5 },
-    ];
-
     return (
         <div className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <StatCard
                     title="Total Students"
-                    value="180"
+                    value="—"
+                    subtitle="No sections added yet"
                     icon={<Users className="w-6 h-6" />}
                     variant="primary"
                 />
                 <StatCard
                     title="Faculty"
-                    value="12"
+                    value="—"
+                    subtitle="Add faculty in Teachers page"
                     icon={<GraduationCap className="w-6 h-6" />}
                     variant="success"
                 />
                 <StatCard
                     title="Avg Attendance"
-                    value="85%"
+                    value="—"
+                    subtitle="After attendance is recorded"
                     icon={<UserCheck className="w-6 h-6" />}
                     variant="warning"
                 />
                 <StatCard
                     title="Avg CGPA"
-                    value="8.2"
+                    value="—"
+                    subtitle="After results are recorded"
                     icon={<Award className="w-6 h-6" />}
                     variant="default"
                 />
             </div>
 
             {/* Section Performance Chart */}
-            <Card>
-                <h3 className="text-lg font-semibold text-white mb-4">Section Performance</h3>
-                <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={departmentMetrics}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                            <XAxis dataKey="name" stroke="#94a3b8" />
-                            <YAxis stroke="#94a3b8" />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#1a2332',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '12px',
-                                    color: '#fff',
-                                }}
-                            />
-                            <Legend />
-                            <Bar dataKey="avgAttendance" fill="#22d3ee" name="Avg Attendance %" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="avgCGPA" fill="#a855f7" name="Avg CGPA" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+            <Card className="border-white/10">
+                <div className="flex flex-col items-center text-center py-10 gap-3 text-slate-400">
+                    <Building2 className="w-8 h-8" />
+                    <p className="text-sm max-w-sm">
+                        Section performance analytics appear here once teachers
+                        record attendance and results for their sections.
+                    </p>
                 </div>
             </Card>
         </div>
@@ -354,65 +347,48 @@ const HODDashboard: React.FC = () => {
 // =============================================================================
 
 const PrincipalDashboard: React.FC = () => {
-    const collegeStats = [
-        { department: 'CSE', students: 180, faculty: 12, avgCGPA: 8.2 },
-        { department: 'ECE', students: 160, faculty: 10, avgCGPA: 7.9 },
-        { department: 'EEE', students: 140, faculty: 9, avgCGPA: 7.8 },
-        { department: 'MECH', students: 150, faculty: 11, avgCGPA: 7.6 },
-    ];
-
     return (
         <div className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <StatCard
                     title="Total Students"
-                    value="630"
+                    value="—"
+                    subtitle="No departments configured"
                     icon={<Users className="w-6 h-6" />}
                     variant="primary"
                 />
                 <StatCard
                     title="Faculty"
-                    value="42"
+                    value="—"
+                    subtitle="Add faculty in Teachers page"
                     icon={<GraduationCap className="w-6 h-6" />}
                     variant="success"
                 />
                 <StatCard
                     title="Departments"
-                    value="4"
+                    value="0"
+                    subtitle="Add departments to start"
                     icon={<Building2 className="w-6 h-6" />}
                     variant="warning"
                 />
                 <StatCard
                     title="Avg CGPA"
-                    value="7.9"
+                    value="—"
+                    subtitle="After results are recorded"
                     icon={<Award className="w-6 h-6" />}
                     variant="default"
                 />
             </div>
 
             {/* Department Comparison Chart */}
-            <Card>
-                <h3 className="text-lg font-semibold text-white mb-4">Department Comparison</h3>
-                <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={collegeStats}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                            <XAxis dataKey="department" stroke="#94a3b8" />
-                            <YAxis stroke="#94a3b8" />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#1a2332',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '12px',
-                                    color: '#fff',
-                                }}
-                            />
-                            <Legend />
-                            <Bar dataKey="students" fill="#22d3ee" name="Students" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="faculty" fill="#10b981" name="Faculty" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+            <Card className="border-white/10">
+                <div className="flex flex-col items-center text-center py-10 gap-3 text-slate-400">
+                    <Building2 className="w-8 h-8" />
+                    <p className="text-sm max-w-sm">
+                        Department-level analytics appear here once departments,
+                        faculty, and student data are configured by HODs.
+                    </p>
                 </div>
             </Card>
         </div>

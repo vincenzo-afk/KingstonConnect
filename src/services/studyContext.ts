@@ -4,11 +4,10 @@ import {
 } from '@/data/teacherContent';
 import { useAUResultsStore } from '@/stores/auResultsStore';
 import {
-    ATTENDANCE_STATS,
     getDeadlinesSorted,
-    RECENT_ACTIVITY,
-    RESULTS_STATS,
 } from '@/data/studentData';
+import { useAttendanceStore } from '@/stores/attendanceStore';
+import { getAssignmentsStore } from '@/stores/assignmentsStore';
 
 export interface AttendanceSnapshot {
     percentage: number;
@@ -24,9 +23,14 @@ export interface AttendanceSnapshot {
  */
 export function buildStudentContext(user: Profile | null): string {
     const store = useAUResultsStore.getState();
+    const att = useAttendanceStore.getState();
+    const assignments = getAssignmentsStore();
     const au = {
-        percentage: ATTENDANCE_STATS.overall,
-        subjectWise: ATTENDANCE_STATS.subjectWise,
+        percentage: att.overallPercentage,
+        subjectWise: att.subjectWise,
+        trend:
+            att.overallPercentage -
+            att.lastMonthPercentage,
     };
 
     // ------------------------------------------------------------------
@@ -45,22 +49,22 @@ export function buildStudentContext(user: Profile | null): string {
     // ------------------------------------------------------------------
     // Academic snapshot (dashboard stats)
     // ------------------------------------------------------------------
-    const trajectory = RESULTS_STATS.trajectory;
+    const semesters = store.semesters;
     const trendDirection =
-        trajectory.length >= 2
-            ? trajectory[trajectory.length - 1].sgpa >=
-              trajectory[0].sgpa
+        semesters.length >= 2
+            ? (semesters[semesters.length - 1].gpa ?? 0) >=
+              (semesters[0].gpa ?? 0)
                 ? 'rising'
                 : 'declining'
             : 'flat';
+    const cgpa = store.getCGPA();
+    const creditsEarned = store.getTotalCredits();
     const academicSnapshot = `
 ## Academic Snapshot (from dashboard)
-- CGPA: ${user?.cgpa ?? RESULTS_STATS.cgpa} (${trendDirection} trajectory over semesters 1–${trajectory.length})
-- SGPA by semester: ${trajectory
-    .map((s) => `Sem ${s.semester}: ${s.sgpa}`)
-    .join('; ')}
-- Credits earned: ${user?.credits ?? RESULTS_STATS.creditsEarned} of ${RESULTS_STATS.degreeCreditsTotal} total
-- Class rank: #${user?.rank ?? RESULTS_STATS.rank}
+- CGPA: ${cgpa ?? user?.cgpa ?? 'not recorded yet'} (${trendDirection} trajectory${semesters.length > 0 ? ` over ${semesters.length} recorded semesters` : ''})
+- SGPA by semester: ${semesters.length > 0 ? semesters.map((s) => `Sem ${s.semester}: ${s.gpa}`).join('; ') : 'no semesters recorded yet'}
+- Credits earned: ${creditsEarned}${creditsEarned > 0 ? ' total (recorded)' : ' — add exam results on the AU Portal page'}
+- Class rank: #${user?.rank ?? 'not set'}
 `.trim();
 
     // ------------------------------------------------------------------
@@ -68,11 +72,9 @@ export function buildStudentContext(user: Profile | null): string {
     // ------------------------------------------------------------------
     const belowThreshold =
         au.subjectWise?.filter((s) => s.percentage < 75) ?? [];
-    const attendanceBlock = `
+const attendanceBlock = `
 ## Attendance (this semester)
-- Overall attendance: ${au.percentage}% (trend: ${
-        ATTENDANCE_STATS.overall - ATTENDANCE_STATS.lastMonth >= 0 ? '+' : ''
-    }${ATTENDANCE_STATS.overall - ATTENDANCE_STATS.lastMonth}% vs last month)
+- Overall attendance: ${au.percentage}% (trend: ${au.trend >= 0 ? '+' : ''}${au.trend}% vs last month${att.overallTotal === 0 ? ' — the student has not recorded any attendance yet' : ''})
 ${au.subjectWise?.map((s) => `- ${s.name}: ${s.percentage}%`).join('\n') ?? ''}
 ${
     belowThreshold.length > 0
@@ -113,17 +115,23 @@ Urgent items (due within 3 days) should be mentioned proactively.
     // ------------------------------------------------------------------
     // Recent activity (strengths + recency)
     // ------------------------------------------------------------------
-    const recentActivities = RECENT_ACTIVITY;
-    const gradedEntries = recentActivities.filter((a) => a.type === 'graded');
-    const activityBlock = `
+    const submitted = assignments.filter((a) => a.status !== 'pending');
+    const gradedEntries = assignments.filter((a) => a.status === 'graded');
+    const activityBlock =
+        submitted.length === 0
+            ? '## Recent Activity\nNo activity recorded yet.'
+            : `
 ## Recent Activity
-${recentActivities
-    .map((a) => `- ${a.title}: ${a.description} (${a.time})`)
+${submitted
+    .map(
+        (a) =>
+            `- **${a.title}** (${a.subject}): ${a.status === 'graded' ? `graded ${a.grade}/${a.marks}` : `submitted${a.submittedAt ? ` on ${a.submittedAt}` : ''}`}`
+    )
     .join('\n')}
 ${
     gradedEntries.length > 0
         ? `
-**Strength signal:** the student recently scored well in ${gradedEntries[0].description.split(' - ')[0]} — treat related questions as revision/advanced rather than remedial.
+**Strength signal:** the student recently scored ${gradedEntries[0].grade}/${gradedEntries[0].marks} (${Math.round(((gradedEntries[0].grade ?? 0) / (gradedEntries[0].marks ?? 1)) * 100)}%) in ${gradedEntries[0].title} (${gradedEntries[0].subject}) — treat related questions as revision/advanced rather than remedial.
 `
         : ''
 }
@@ -193,23 +201,19 @@ Subjects: ${semesterContext.subjects
     const weakNames = store
         .getWeakSubjects()
         .map((w) => w.subject.name);
-    const coachingProfile = `
+const coachingProfile = `
 ## Coaching Profile (synthesized — use this to prioritize)
 - Focus subjects (weak grades): ${weakNames.length > 0 ? weakNames.join(', ') : 'none recorded yet'}
 - Eligibility risks (attendance <75%): ${
-        belowThreshold.length > 0
-            ? belowThreshold.map((s) => s.name).join(', ')
-            : 'none — all subjects eligible'
-    }
+    belowThreshold.length > 0
+        ? belowThreshold.map((s) => s.name).join(', ')
+        : 'none — all subjects eligible'
+}
 - Urgent deadlines: ${deadlines
-        .filter((d) => d.daysUntil <= 3)
-        .map((d) => d.title)
-        .join(', ') || 'none in the next 3 days'}
-- Momentum: CGPA is ${trendDirection}; attendance trend ${
-        ATTENDANCE_STATS.overall - ATTENDANCE_STATS.lastMonth >= 0
-            ? 'improving'
-            : 'declining'
-    }
+    .filter((d) => d.daysUntil <= 3)
+    .map((d) => d.title)
+    .join(', ') || 'none in the next 3 days'}
+- Momentum: CGPA is ${trendDirection}; attendance trend ${au.trend >= 0 ? 'improving' : 'declining'}
 - Keep a supportive tutor tone; personalize every answer with the above facts
   (mention deadlines when planning, flag attendance risks, target weak
   subjects when suggesting what to study).
@@ -259,18 +263,19 @@ export function getStudentQuickFacts(user: Profile | null) {
         store.semesters.length > 0
             ? store.semesters[store.semesters.length - 1]
             : null;
+    const att = useAttendanceStore.getState();
     const deadlines = getDeadlinesSorted();
     const below =
-        ATTENDANCE_STATS.subjectWise.filter((s) => s.percentage < 75) ?? [];
+        att.subjectWise.filter((s) => s.percentage < 75) ?? [];
     return {
         weakSubjectName: weak.length > 0 ? weak[0].subject.name : null,
         weakSubjectCode: weak.length > 0 ? weak[0].subject.code : null,
         semester: latest?.semester ?? user?.semester ?? null,
-        attendance: ATTENDANCE_STATS.overall,
+        attendance: att.overallPercentage,
         attendanceLowSubject: below.length > 0 ? below[0].name : null,
         urgentDeadlineTitle:
             deadlines.length > 0 ? deadlines[0].title : null,
         urgentDeadlineDays: deadlines.length > 0 ? deadlines[0].daysUntil : null,
-        cgpa: user?.cgpa ?? RESULTS_STATS.cgpa,
+        cgpa: store.getCGPA() ?? user?.cgpa ?? null,
     };
 }

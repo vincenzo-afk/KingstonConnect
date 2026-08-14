@@ -163,15 +163,34 @@ const AUPortalPage: React.FC = () => {
         }
     };
 
+    /** Effective DOB: picker parts are the primary input; typed text is the override. */
+    const effectiveDob = dob.trim() || buildDob(dobParts.day, dobParts.month, dobParts.year);
+
     const submitFetch = async () => {
-        if (!session || !captchaCode.trim() || !regNo.trim() || !dob.trim()) return;
+        // Visible validation — never fail silently.
+        if (!session) {
+            setFetchError('Could not start a session with the portal. Click "Get new captcha" and try again.');
+            return;
+        }
+        if (!regNo.trim()) {
+            setFetchError('Please enter your register number first.');
+            return;
+        }
+        if (!effectiveDob) {
+            setFetchError('Please choose your Date of Birth from the Day / Month / Year pickers.');
+            return;
+        }
+        if (!captchaCode.trim()) {
+            setFetchError('Please type the captcha code shown in the image (mixed case, exactly as shown).');
+            return;
+        }
         setFetchingResults(true);
         setFetchError(null);
         setFetchSuccess(null);
         try {
             const parsed = await fetchAUResults({
                 registerNo: regNo.trim(),
-                dob: dob.trim(),
+                dob: effectiveDob,
                 captchaCode: captchaCode.trim(),
                 tokenName: session.tokenName,
                 tokenValue: session.tokenValue,
@@ -323,7 +342,15 @@ const AUPortalPage: React.FC = () => {
                 {fetchError && (
                     <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300 flex items-start gap-2">
                         <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>{fetchError}</span>
+                        <span className="flex-1">{fetchError}</span>
+                        <button
+                            type="button"
+                            aria-label="Dismiss"
+                            onClick={() => setFetchError(null)}
+                            className="text-red-400/70 hover:text-red-300 text-lg leading-none px-1"
+                        >
+                            ×
+                        </button>
                     </div>
                 )}
                 {fetchSuccess && (
@@ -379,7 +406,7 @@ const AUPortalPage: React.FC = () => {
                                 !session ||
                                 !captchaCode.trim() ||
                                 !regNo.trim() ||
-                                !dob.trim()
+                                !effectiveDob
                             }
                             className="w-full md:w-auto md:self-start"
                         >

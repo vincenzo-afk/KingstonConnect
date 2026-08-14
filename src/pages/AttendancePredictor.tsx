@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useAttendanceStore } from '@/stores/attendanceStore';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -27,14 +28,7 @@ interface SubjectData {
     present: number;
 }
 
-// Mock subject-wise attendance (mirrors the Attendance page demo data)
-const initialSubjects: SubjectData[] = [
-    { name: 'Data Structures', total: 60, present: 51 },
-    { name: 'Algorithms', total: 58, present: 52 },
-    { name: 'Database Systems', total: 62, present: 46 },
-    { name: 'Operating Systems', total: 55, present: 48 },
-    { name: 'Discrete Mathematics', total: 60, present: 53 },
-];
+
 
 /**
  * Number of consecutive classes to attend (all present) until percentage >= 75%
@@ -70,7 +64,13 @@ const canMiss = (total: number, present: number): number | null => {
 };
 
 const AttendancePredictorPage: React.FC = () => {
-    const [subjects] = useState<SubjectData[]>(initialSubjects);
+    const attendance = useAttendanceStore();
+    // Real data only: subject-wise attendance from the attendance store.
+    const subjects: SubjectData[] = attendance.subjects.map((s) => ({
+        name: s.name,
+        total: s.total,
+        present: s.present,
+    }));
     const [customPresent, setCustomPresent] = useState('');
     const [customTotal, setCustomTotal] = useState('');
 
@@ -213,8 +213,8 @@ const AttendancePredictorPage: React.FC = () => {
                     <p className="text-sm text-slate-400 mb-4">
                         If you attend every class for the next {simClasses} classes, your overall attendance would become:
                     </p>
-                    <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-56 min-h-0">
+                        <ResponsiveContainer width="100%" height={224}>
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                                 <XAxis dataKey="classes" tick={{ fill: '#94a3b8', fontSize: 11 }} interval={2} />

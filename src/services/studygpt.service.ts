@@ -9,10 +9,8 @@ import {
     buildModeInstructions,
     detectFormats,
 } from '@/services/formatEngine';
-import {
-    getDeadlinesSorted,
-    ATTENDANCE_STATS,
-} from '@/data/studentData';
+import { getDeadlinesSorted } from '@/data/studentData';
+import { useAttendanceStore } from '@/stores/attendanceStore';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant' | 'ai';
@@ -725,7 +723,9 @@ ${
 function buildFocusResponse(): string {
     const deadlines = getDeadlinesSorted();
     const urgent = deadlines.filter((d) => d.daysUntil <= 3);
-    const below = ATTENDANCE_STATS.subjectWise.filter((s) => s.percentage < 75);
+    const below = useAttendanceStore.getState().subjectWise.filter(
+        (s) => s.percentage < 75
+    );
     const auStore = useAUResultsStore.getState();
     const weak = auStore.getWeakSubjects();
 
@@ -751,15 +751,17 @@ function buildFocusResponse(): string {
             `${n++}. **Revise ${weak[0].subject.name}** — your weakest recorded subject (grade ${weak[0].subject.grade}, Semester ${weak[0].semester}).`
         );
     }
-    lines.push(
-        `${n++}. **Keep your momentum in Algorithms** — you scored 18/20 on the last assignment; a quick revision session maintains the edge.`
-    );
+    if (urgent.length === 0 && below.length === 0 && weak.length === 0) {
+        lines.push(
+            `${n++}. Nothing urgent right now — review your strongest subject to keep your momentum, and record your attendance and exam results so I can personalize your focus plan.`
+        );
+    }
 
     const schedule = `| When | Focus |
 | --- | --- |
-| Today | ${urgent[0]?.title ?? 'Algorithms revision'} |
-| Tomorrow | ${deadlines[1]?.title ?? 'DBMS Project — milestone 1'} |
-| This week | ${below[0] ? `Attend all ${below[0].name} classes` : 'Complete the first DBMS Project milestone'} |`;
+| Today | ${urgent[0]?.title ?? 'Review your weakest recorded subject'} |
+| Tomorrow | ${deadlines[1]?.title ?? urgent[0]?.title ?? 'Continue your study plan'} |
+| This week | ${below[0] ? `Attend all ${below[0].name} classes` : 'Stay on top of upcoming deadlines'} |`;
     return lines.join('\n') + '\n\n**Today\'s mini-schedule:**\n\n' + schedule;
 }
 

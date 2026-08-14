@@ -247,8 +247,8 @@ const CGPACalculatorPage: React.FC = () => {
                     <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                         <GraduationCap className="w-5 h-5 text-cyan-400" /> Semester Trend
                     </h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-64 min-h-0">
+                        <ResponsiveContainer width="100%" height={224}>
                             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
                                 <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />

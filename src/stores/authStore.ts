@@ -48,31 +48,34 @@ export const useAuthStore = create<AuthStore>()(
             isAuthenticated: false,
             isLoading: false,
 
-            login: async (_email: string, _password: string) => {
+            login: async (email: string, _password: string) => {
                 set({ isLoading: true });
 
                 try {
-                    // Simulate API call - in production, this would hit your auth endpoint
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // Local demo auth: derive the profile from what the user
+                    // actually typed (no hardcoded demo identity). A staff
+                    // email (e.g. staff/faculty/principal/hod dept address)
+                    // logs in as teacher; everything else is a student whose
+                    // register number / semester / section they set later on
+                    // the AU Portal or in their profile.
+                    await new Promise(resolve => setTimeout(resolve, 500));
 
-                    // Mock user for demo - replace with actual auth logic
-                    const mockUser: Profile = {
-                        id: '1',
-                        email: 'john.doe@kec.edu',
-                        firstName: 'John',
-                        lastName: 'Doe',
-                        role: 'student',
+                    const local = email.split('@')[0];
+                    const isStaff =
+                        /staff|faculty|prof|teacher|hod|principal|admin/i.test(local);
+                    const [first, ...rest] = local.replace(/[._-]/g, ' ').split(' ');
+
+                    const profile: Profile = {
+                        id: btoa(email).slice(0, 12),
+                        email,
+                        firstName: first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Student',
+                        lastName: rest.join(' ').replace(/\b\w/g, c => c.toUpperCase()) || '',
+                        role: isStaff ? 'teacher' : 'student',
                         department: 'CSE',
-                        rollNumber: '21BCE1234',
-                        semester: 6,
                         section: 'A',
-                        phone: '+91 9876543210',
-                        cgpa: 8.5,
-                        credits: 120,
-                        rank: 15,
                     };
 
-                    set({ user: mockUser, isAuthenticated: true, isLoading: false });
+                    set({ user: profile, isAuthenticated: true, isLoading: false });
                 } catch (error) {
                     set({ isLoading: false });
                     throw error;
@@ -83,10 +86,10 @@ export const useAuthStore = create<AuthStore>()(
                 set({ isLoading: true });
 
                 try {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 500));
 
-                    const mockUser: Profile = {
-                        id: '1',
+                    const profile: Profile = {
+                        id: btoa(data.email ?? '').slice(0, 12),
                         email: data.email!,
                         firstName: data.firstName!,
                         lastName: data.lastName!,
@@ -99,7 +102,7 @@ export const useAuthStore = create<AuthStore>()(
                         phone: data.phone,
                     };
 
-                    set({ user: mockUser, isAuthenticated: true, isLoading: false });
+                    set({ user: profile, isAuthenticated: true, isLoading: false });
                 } catch (error) {
                     set({ isLoading: false });
                     throw error;

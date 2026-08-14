@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useAuthStore } from '@/stores';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -14,6 +15,8 @@ import {
     Star,
     ExternalLink,
     X,
+    Plus,
+    Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,128 +43,8 @@ interface CollegeEvent {
     featured: boolean;
 }
 
-const events: CollegeEvent[] = [
-    {
-        id: 'ev-1',
-        title: 'TechFest 2026 — Kingston Engineering Expo',
-        category: 'Technical',
-        organizer: 'Student Council & CSE Department',
-        date: '2026-09-12',
-        time: '09:00 AM - 06:00 PM',
-        venue: 'Main Auditorium & Labs',
-        description: 'The flagship 3-day technical festival featuring project exhibitions, robotics wars, coding sprints, circuit debugging contests and keynote sessions by industry experts from Zoho, Freshworks and Cognizant.',
-        seats: 500,
-        registered: 312,
-        registrationOpen: true,
-        fee: '₹100 (with college ID)',
-        featured: true,
-    },
-    {
-        id: 'ev-2',
-        title: 'Hackathon 4.0 — Build for Bharat',
-        category: 'Technical',
-        organizer: 'IEEE Student Branch',
-        date: '2026-09-20',
-        time: '08:00 AM - 08:00 PM',
-        venue: 'CSE Block, Innovation Lab',
-        description: '24-hour hackathon focused on solving real problems in healthcare, agriculture and civic tech. Teams of up to 4. Mentors from alumni at TCS, Infosys and Wipro. Prizes worth ₹1.5 lakh.',
-        seats: 120,
-        registered: 84,
-        registrationOpen: true,
-        fee: 'Free',
-        featured: true,
-    },
-    {
-        id: 'ev-3',
-        title: 'Campus Drive — Zoho Recruitment',
-        category: 'Placement',
-        organizer: 'Training & Placement Cell',
-        date: '2026-09-05',
-        time: '09:30 AM',
-        venue: 'Placement Hall, Admin Block',
-        description: 'On-campus recruitment for 2026 pass-out batches. Roles: Software Developer, Product Analyst. Package: ₹4.5 - 8.5 LPA. Bring resume, mark sheets and ID card. Shortlisting based on CGPA 6.5+.',
-        seats: 200,
-        registered: 147,
-        registrationOpen: true,
-        fee: 'Free',
-        featured: true,
-    },
-    {
-        id: 'ev-4',
-        title: 'Cultural Fest — Arts & Music Night',
-        category: 'Cultural',
-        organizer: 'Cultural Club',
-        date: '2026-10-02',
-        time: '05:30 PM - 10:00 PM',
-        venue: 'College Grounds',
-        description: 'Annual cultural night with solo/group singing, dance battle, stand-up comedy open mic and band performances. Food stalls and carnival games throughout.',
-        seats: 1000,
-        registered: 423,
-        registrationOpen: true,
-        fee: '₹50',
-        featured: false,
-    },
-    {
-        id: 'ev-5',
-        title: 'Workshop — Machine Learning with Python',
-        category: 'Workshop',
-        organizer: 'AI & Data Science Club',
-        date: '2026-09-25',
-        time: '10:00 AM - 04:00 PM',
-        venue: 'AI Lab, ECE Block',
-        description: 'Hands-on 2-day workshop covering pandas, scikit-learn and building a mini ML project. Laptops required. Certificates for all participants.',
-        seats: 60,
-        registered: 51,
-        registrationOpen: true,
-        fee: '₹150 (with kit)',
-        featured: false,
-    },
-    {
-        id: 'ev-6',
-        title: 'Inter-College Cricket Tournament',
-        category: 'Sports',
-        organizer: 'Sports Committee',
-        date: '2026-10-10',
-        time: '07:00 AM onwards',
-        venue: 'College Sports Ground',
-        description: 'T20 format tournament with 8 colleges participating. Department team selections open till 1st October. Spectator entry free.',
-        seats: 300,
-        registered: 96,
-        registrationOpen: true,
-        fee: 'Free for spectators',
-        featured: false,
-    },
-    {
-        id: 'ev-7',
-        title: 'Seminar — Industry 4.0 & Smart Manufacturing',
-        category: 'Seminar',
-        organizer: 'Mechanical Engineering Dept.',
-        date: '2026-09-28',
-        time: '02:00 PM - 05:00 PM',
-        venue: 'Seminar Hall, MECH Block',
-        description: 'Guest lecture by Mr. Senthil Kumar (Plant Head, Ashok Leyland) on IoT in manufacturing, digital twins and career opportunities in Industry 4.0.',
-        seats: 150,
-        registered: 102,
-        registrationOpen: false,
-        fee: 'Free',
-        featured: false,
-    },
-    {
-        id: 'ev-8',
-        title: 'Fresher\'s Day — Welcome 2026 Batch',
-        category: 'Cultural',
-        organizer: 'Student Council',
-        date: '2026-10-18',
-        time: '10:00 AM - 01:00 PM',
-        venue: 'Main Auditorium',
-        description: 'A fun-filled day to welcome the 2026 batch with games, talent showcase, ice-breaking sessions and a surprise performance by senior batch students.',
-        seats: 800,
-        registered: 612,
-        registrationOpen: false,
-        fee: 'Free',
-        featured: false,
-    },
-];
+// Events are created by staff in the Events page and stored locally
+// (no mock/demo data — the list starts empty until someone adds an event).
 
 const categoryColors: Record<EventCategory, string> = {
     Technical: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
@@ -182,12 +65,23 @@ const isUpcoming = (d: string) => new Date(d + 'T00:00:00') >= new Date(new Date
 // =============================================================================
 
 const EventsPage: React.FC = () => {
+    const { user } = useAuthStore();
+    const [events, setEvents] = useState<CollegeEvent[]>([]);
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState<EventCategory | 'All'>('All');
     const [selected, setSelected] = useState<CollegeEvent | null>(null);
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState<Partial<CollegeEvent>>({
+        category: 'Technical',
+    });
+
+    const isStaff =
+        user?.role === 'teacher' ||
+        user?.role === 'hod' ||
+        user?.role === 'principal';
 
     const filtered = useMemo(() => {
-        return events
+        return [...events]
             .filter((e) => (category === 'All' || e.category === category))
             .filter((e) =>
                 e.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -195,9 +89,43 @@ const EventsPage: React.FC = () => {
                 e.venue.toLowerCase().includes(search.toLowerCase())
             )
             .sort((a, b) => a.date.localeCompare(b.date));
-    }, [search, category]);
+    }, [events, search, category]);
 
     const upcomingCount = events.filter((e) => isUpcoming(e.date)).length;
+
+    const addEvent = () => {
+        if (
+            !form.title?.trim() ||
+            !form.date ||
+            !form.venue?.trim() ||
+            !form.description?.trim()
+        )
+            return;
+        const event: CollegeEvent = {
+            id: `ev-${Date.now()}`,
+            title: form.title.trim(),
+            category: (form.category as EventCategory) || 'Technical',
+            organizer: form.organizer?.trim() || user?.role || 'Staff',
+            date: form.date!,
+            time: form.time || 'All day',
+            venue: form.venue.trim(),
+            description: form.description.trim(),
+            seats: Number(form.seats) || 0,
+            registered: 0,
+            registrationOpen: form.registrationOpen ?? true,
+            registrationLink: form.registrationLink,
+            fee: form.fee?.trim() || 'Free',
+            featured: form.featured ?? false,
+        };
+        setEvents((prev) => [event, ...prev]);
+        setForm({ category: 'Technical' });
+        setShowForm(false);
+    };
+
+    const removeEvent = (id: string) => {
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+        setSelected((prev) => (prev?.id === id ? null : prev));
+    };
 
     return (
         <div className="space-y-6">
@@ -210,7 +138,135 @@ const EventsPage: React.FC = () => {
                         {upcomingCount} upcoming events · technical, cultural, sports & placements
                     </p>
                 </div>
+                {isStaff && (
+                    <Button
+                        variant="primary"
+                        className="gap-2"
+                        onClick={() => setShowForm((v) => !v)}
+                    >
+                        <Plus className="w-4 h-4" />
+                        {showForm ? 'Close' : 'Add Event'}
+                    </Button>
+                )}
             </div>
+
+            {/* Create event form (staff only) */}
+            {isStaff && showForm && (
+                <Card>
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Plus className="w-4 h-4 text-cyan-400" /> New event
+                    </h3>
+                    <div className="space-y-4">
+                        <Input
+                            label="Title"
+                            placeholder="e.g. TechFest 2026"
+                            value={form.title || ''}
+                            onChange={(e) => setForm({ ...form, title: e.target.value })}
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <Input
+                                label="Date"
+                                type="date"
+                                value={form.date || ''}
+                                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                            />
+                            <Input
+                                label="Time"
+                                placeholder="e.g. 09:00 AM - 06:00 PM"
+                                value={form.time || ''}
+                                onChange={(e) => setForm({ ...form, time: e.target.value })}
+                            />
+                            <Input
+                                label="Venue"
+                                placeholder="e.g. Main Auditorium"
+                                value={form.venue || ''}
+                                onChange={(e) => setForm({ ...form, venue: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <p className="text-sm font-medium text-slate-300 mb-1.5">Category</p>
+                                <div className="flex gap-1.5 flex-wrap">
+                                    {(['Technical', 'Cultural', 'Sports', 'Placement', 'Workshop', 'Seminar'] as const).map((c) => (
+                                        <button
+                                            key={c}
+                                            type="button"
+                                            onClick={() => setForm({ ...form, category: c })}
+                                            className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${form.category === c ? 'bg-cyan-500 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                        >
+                                            {c}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <Input
+                                label="Organizer"
+                                placeholder="e.g. Student Council"
+                                value={form.organizer || ''}
+                                onChange={(e) => setForm({ ...form, organizer: e.target.value })}
+                            />
+                            <Input
+                                label="Fee"
+                                placeholder="e.g. Free / ₹100"
+                                value={form.fee || ''}
+                                onChange={(e) => setForm({ ...form, fee: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-slate-300 mb-1.5">Description</p>
+                            <textarea
+                                value={form.description || ''}
+                                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                                rows={3}
+                                placeholder="Event details..."
+                                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-y"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <Input
+                                label="Seats"
+                                type="number"
+                                placeholder="0"
+                                value={form.seats !== undefined ? String(form.seats) : ''}
+                                onChange={(e) => setForm({ ...form, seats: Number(e.target.value) })}
+                            />
+                            <Input
+                                label="Registration link (optional)"
+                                placeholder="https://..."
+                                value={form.registrationLink || ''}
+                                onChange={(e) => setForm({ ...form, registrationLink: e.target.value })}
+                            />
+                            <div className="flex items-center gap-3 pt-6">
+                                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.registrationOpen ?? true}
+                                        onChange={(e) => setForm({ ...form, registrationOpen: e.target.checked })}
+                                        className="accent-cyan-500"
+                                    />
+                                    Registration open
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.featured ?? false}
+                                        onChange={(e) => setForm({ ...form, featured: e.target.checked })}
+                                        className="accent-cyan-500"
+                                    />
+                                    Featured
+                                </label>
+                            </div>
+                        </div>
+                        <Button
+                            variant="primary"
+                            onClick={addEvent}
+                            disabled={!form.title?.trim() || !form.date || !form.venue?.trim() || !form.description?.trim()}
+                        >
+                            Publish event
+                        </Button>
+                    </div>
+                </Card>
+            )}
 
             {/* Filters */}
             <Card className="p-4">
@@ -291,8 +347,14 @@ const EventsPage: React.FC = () => {
             {filtered.length === 0 ? (
                 <Card variant="glass" className="p-10 text-center">
                     <Search className="w-10 h-10 text-slate-500 mx-auto mb-3" />
-                    <p className="text-white font-medium mb-1">No events match your filters</p>
-                    <p className="text-sm text-slate-400">Try a different category or search term</p>
+                    <p className="text-white font-medium mb-1">
+                        {events.length === 0 ? 'No events yet' : 'No events match your filters'}
+                    </p>
+                    <p className="text-sm text-slate-400">
+                        {events.length === 0
+                            ? 'Staff can publish the first event using the Add Event button.'
+                            : 'Try a different category or search term'}
+                    </p>
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -332,7 +394,19 @@ const EventsPage: React.FC = () => {
             {selected && (
                 <Modal isOpen onClose={() => setSelected(null)} size="md" title={selected.title}>
                     <div className="space-y-4">
-                        <Badge className={categoryColors[selected.category]}>{selected.category}</Badge>
+                        <div className="flex items-start justify-between gap-3">
+                            <Badge className={categoryColors[selected.category]}>{selected.category}</Badge>
+                            {isStaff && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-400 hover:text-red-300"
+                                    onClick={() => removeEvent(selected.id)}
+                                >
+                                    <Trash2 className="w-4 h-4 mr-1" /> Delete
+                                </Button>
+                            )}
+                        </div>
                         <p className="text-sm text-slate-300">{selected.description}</p>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                             <div className="rounded-xl bg-white/5 border border-white/10 p-3">

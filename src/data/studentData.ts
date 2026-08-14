@@ -3,8 +3,10 @@
  * Single source of truth so the dashboard and StudyGPT always agree on what
  * is displayed to / known about the student.
  *
- * In this demo app everything is mock data (no backend). When real data
- * sources (Firebase / API) are wired in, update the exported datasets here.
+ * Real-data mode: all demo/mock datasets are intentionally empty. The
+ * dashboard and StudyGPT now read the student's actual data from the
+ * persisted stores (auResultsStore for AU portal results, attendanceStore
+ * for subject attendance). Fill these only when a real backend is wired in.
  */
 
 // ---------------------------------------------------------------------------
@@ -19,36 +21,36 @@ export interface StudentDeadline {
     type: 'assignment' | 'quiz' | 'project' | 'exam';
 }
 
-export const UPCOMING_DEADLINES: StudentDeadline[] = [
-    {
-        id: '1',
-        title: 'DS Assignment 1',
-        subject: 'Data Structures',
-        dueDate: '2024-01-20',
-        type: 'assignment',
-    },
-    {
-        id: '2',
-        title: 'Algorithms Quiz',
-        subject: 'Algorithms',
-        dueDate: '2024-01-22',
-        type: 'quiz',
-    },
-    {
-        id: '3',
-        title: 'DBMS Project',
-        subject: 'Database Systems',
-        dueDate: '2024-01-25',
-        type: 'project',
-    },
-];
+export const UPCOMING_DEADLINES: StudentDeadline[] = [];
 
 /**
  * Returns deadlines ordered by due date (nearest first) with days-remaining
- * info relative to `now`.
+ * info relative to `now`. Derives open assignments from the persisted
+ * assignments store so upcoming-deadline data always reflects real data.
  */
-export function getDeadlinesSorted(now = new Date('2024-01-15T09:00:00')) {
-    return [...UPCOMING_DEADLINES]
+export function getDeadlinesSorted(now = new Date()) {
+    const raw: StudentDeadline[] = [...UPCOMING_DEADLINES];
+    try {
+        const stored = JSON.parse(
+            localStorage.getItem('kingston-assignments') || 'null'
+        );
+        if (Array.isArray(stored)) {
+            stored.forEach((a: Record<string, unknown>) => {
+                if (typeof a.title === 'string' && typeof a.dueDate === 'string' && a.status !== 'graded') {
+                    raw.push({
+                        id: String(a.id ?? a.title),
+                        title: a.title,
+                        subject: typeof a.subject === 'string' ? a.subject : '',
+                        dueDate: a.dueDate as string,
+                        type: 'assignment' as const,
+                    });
+                }
+            });
+        }
+    } catch {
+        // localStorage unavailable or corrupt — fall back to static list
+    }
+    return raw
         .map((d) => ({
             ...d,
             daysUntil: Math.ceil(
@@ -73,29 +75,7 @@ export interface StudentActivity {
     time: string;
 }
 
-export const RECENT_ACTIVITY: StudentActivity[] = [
-    {
-        id: '1',
-        type: 'notes',
-        title: 'New notes uploaded',
-        description: 'Data Structures - Chapter 5',
-        time: '2 hours ago',
-    },
-    {
-        id: '2',
-        type: 'graded',
-        title: 'Assignment graded',
-        description: 'Algorithms Assignment 2 - 18/20',
-        time: '5 hours ago',
-    },
-    {
-        id: '3',
-        type: 'attendance',
-        title: 'Attendance marked',
-        description: 'Present in DBMS class',
-        time: '1 day ago',
-    },
-];
+export const RECENT_ACTIVITY: StudentActivity[] = [];
 
 // ---------------------------------------------------------------------------
 // Attendance stats (semester)
@@ -113,15 +93,9 @@ export interface AttendanceStats {
 }
 
 export const ATTENDANCE_STATS: AttendanceStats = {
-    overall: 85,
-    lastMonth: 83, // +2% trend shown on dashboard
-    subjectWise: [
-        { name: 'Data Structures', percentage: 85 },
-        { name: 'Algorithms', percentage: 90 },
-        { name: 'Database Systems', percentage: 74 },
-        { name: 'Operating Systems', percentage: 88 },
-        { name: 'Discrete Mathematics', percentage: 89 },
-    ],
+    overall: 0,
+    lastMonth: 0,
+    subjectWise: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -135,19 +109,13 @@ export interface SemesterResult {
 }
 
 export const RESULTS_STATS = {
-    /** Current CGPA shown on the dashboard. */
-    cgpa: 8.5,
+    /** Current CGPA shown on the dashboard (0 until real results are fetched/entered). */
+    cgpa: 0,
     /** Semester-over-semester SGPA trajectory (used for trend chart + AI). */
-    trajectory: [
-        { semester: 1, sgpa: 7.6 },
-        { semester: 2, sgpa: 7.9 },
-        { semester: 3, sgpa: 8.1 },
-        { semester: 4, sgpa: 8.3 },
-        { semester: 5, sgpa: 8.4 },
-    ] as SemesterResult[],
+    trajectory: [] as SemesterResult[],
     /** Credits earned so far (180 total for the degree). */
-    creditsEarned: 120,
+    creditsEarned: 0,
     degreeCreditsTotal: 180,
-    /** Class rank, e.g. "#15". */
-    rank: 15,
+    /** Class rank, e.g. "#15" (0 = not recorded). */
+    rank: 0,
 };
