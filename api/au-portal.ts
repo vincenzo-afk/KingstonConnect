@@ -310,7 +310,7 @@ async function handleSubmit(body: {
   // Detect common portal errors
   if (/INVALID|NOT FOUND|captcha|no result|not exist/i.test(resultHtml) && !/<table/i.test(resultHtml)) {
     const clean = resultHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    const snippet = clean.slice(0, 400);
+    const snippet = clean.slice(0, 600);
     // Order matters: credential error pages also contain the word "invalid".
     if (/register number|date of birth|profile not found/i.test(snippet)) {
       return {
@@ -319,15 +319,18 @@ async function handleSubmit(body: {
           "No results found for this register number / DOB. Please double-check both values (DD-MM-YYYY format) and try again.",
       };
     }
+    if (/no result|not exist|not found/i.test(snippet)) {
+      return { error: "NO_RESULT", message: "No results found for this register number / DOB." };
+    }
+    // The portal's captcha-fail page also contains the word "invalid".
     if (/invalid|captcha/i.test(snippet)) {
       return {
         error: "INVALID_CAPTCHA",
         message:
           "The captcha code was incorrect, or the register number / DOB does not match. Please re-enter the captcha carefully (and verify your DOB format: DD-MM-YYYY) and try again.",
+        // Exact portal wording, shown only in dev/debug builds for diagnosis
+        rawSnippet: snippet.slice(0, 200),
       };
-    }
-    if (/no result|not exist|not found/i.test(snippet)) {
-      return { error: "NO_RESULT", message: "No results found for this register number / DOB." };
     }
     return { error: "PORTAL_ERROR", message: snippet || "The portal returned an unexpected page." };
   }
