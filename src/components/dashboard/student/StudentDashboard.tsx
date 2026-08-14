@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
 import { Card } from '@/components/ui/Card';
@@ -16,49 +16,30 @@ import {
     Activity,
     Bell
 } from 'lucide-react';
-import { getCachedStudentData, AUStudentData, calculateCGPA } from '@/services/auportal.service';
+import { useAUResultsStore } from '@/stores/auResultsStore';
 import { calculateAttendanceMetrics } from '@/utils/attendanceUtils';
 import { cn } from '@/lib/utils';
 
 export const StudentDashboard: React.FC = () => {
     const { user } = useAuthStore();
     const navigate = useNavigate();
-    const [auData, setAuData] = useState<AUStudentData | null>(null);
-    const [_loading, setLoading] = useState(false);
+    const auStore = useAUResultsStore();
 
-    const fetchStudentData = useCallback(async () => {
-        setLoading(true);
-        try {
-            if (user?.id) {
-                const cached = await getCachedStudentData(user.id);
-                if (cached) {
-                    setAuData(cached.data);
-                }
-            }
-        } catch (error) {
-            console.error("Failed to fetch AU data", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [user?.id]);
+    // Derived Stats — driven by the live AU results store (manual + portal-imported)
+    const attendanceEligible = auStore.getAttendanceEligible();
+    const attendancePercentage = attendanceEligible.percentage > 0
+        ? attendanceEligible.percentage
+        : calculateAttendanceMetrics(null)?.overallPercentage || 0;
 
-    useEffect(() => {
-        if (user?.rollNumber) {
-            void fetchStudentData();
-        }
-    }, [user?.rollNumber, fetchStudentData]);
-
-    // Derived Stats
-    const attendanceMetrics = calculateAttendanceMetrics(auData);
-    const attendancePercentage = attendanceMetrics?.overallPercentage || 0;
-
-    // Calculate CGPA and SGPA
-    const cgpaData = auData?.exam_result?.results ? calculateCGPA(auData.exam_result.results) : null;
-    const cgpa = cgpaData?.cgpa || 'N/A';
-    const semesterGPAs = cgpaData?.sgpa.map((gpa, index) => ({
-        semester: index + 1,
-        gpa
-    })).reverse() || [];
+    const cgpaValue = auStore.getCGPA();
+    const cgpa = cgpaValue !== null ? String(cgpaValue) : 'N/A';
+    const semesterGPAs = auStore.semesters
+        .map((sem) => {
+            const g = auStore.computeSemesterGPA(sem);
+            return { semester: sem.semester, gpa: g?.gpa ?? null };
+        })
+        .filter((s) => s.gpa !== null)
+        .reverse();
 
     const pendingAssignments = 3; // Mock data
 

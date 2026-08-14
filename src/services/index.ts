@@ -3,8 +3,15 @@
  * Re-exports all services for convenient importing
  */
 
-// Authentication & User Data
-export * from './auportal.service';
+// Anna University portal (live serverless proxy)
+export {
+    initAUSession,
+    fetchAUResults,
+    type AUSessionInit,
+    type AUParsedSemester,
+    type AUParsedSubject,
+    type AUFetchError,
+} from './auPortal.service';
 
 // Communication
 export {

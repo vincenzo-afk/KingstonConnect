@@ -1,18 +1,64 @@
-import { AUStudentData, AUAttendanceMetrics, AUResultItem, AUCGPACalculation } from '@/services/auportal.service';
+/**
+ * Attendance & CGPA utility helpers.
+ * Self-contained types — no dependency on a running portal backend.
+ */
+
+export interface AUPeriodReport {
+    total_period: string;
+    attended_period: string;
+    assesment_mark: string | null;
+}
+
+export interface AUAssessmentSubject {
+    subject_code: string;
+    report_period1: AUPeriodReport;
+    report_period2: AUPeriodReport;
+    report_period3: AUPeriodReport;
+    report_period4: AUPeriodReport;
+}
+
+export interface AUStudentData {
+    assessment?: AUAssessmentSubject[];
+}
+
+export interface AUAttendanceMetrics {
+    overallPercentage: number;
+    subjectWise: {
+        subjectCode: string;
+        percentage: number;
+        attended: number;
+        total: number;
+        status: 'safe' | 'warning' | 'danger';
+    }[];
+    currentPeriod: 1 | 2 | 3 | 4;
+}
+
+export interface AUResultItem {
+    semester: string;
+    subject_code: string;
+    grade: string;
+}
+
+export interface AUCGPACalculation {
+    cgpa: number;
+    sgpa: number[];
+    totalCredits: number;
+    gradeDistribution: Record<string, number>;
+}
 
 // Grade Points Mapping
 const GRADE_POINTS: Record<string, number> = {
-    'O': 10,
+    O: 10,
     'A+': 9,
-    'A': 8,
+    A: 8,
     'B+': 7,
-    'B': 6,
-    'C': 5,
-    'D': 4, // Minimum passing
-    'RA': 0, // Reappear
-    'SA': 0, // Shortage of Attendance
-    'W': 0,  // Withheld
-    'AB': 0, // Absent
+    B: 6,
+    C: 5,
+    D: 4, // Minimum passing
+    RA: 0, // Reappear
+    SA: 0, // Shortage of Attendance
+    W: 0, // Withheld
+    AB: 0, // Absent
 };
 
 /**
@@ -23,7 +69,7 @@ export function calculateAttendanceMetrics(data: AUStudentData | null): AUAttend
         return {
             overallPercentage: 0,
             subjectWise: [],
-            currentPeriod: 1
+            currentPeriod: 4,
         };
     }
 
@@ -51,12 +97,12 @@ export function calculateAttendanceMetrics(data: AUStudentData | null): AUAttend
         let total = 0;
 
         // Sum up all periods
-        [subject.report_period1, subject.report_period2, subject.report_period3, subject.report_period4].forEach(period => {
+        [subject.report_period1, subject.report_period2, subject.report_period3, subject.report_period4].forEach((period) => {
             if (period.attended_period && period.attended_period !== '') {
-                attended += parseInt(period.attended_period) || 0;
+                attended += parseInt(period.attended_period, 10) || 0;
             }
             if (period.total_period && period.total_period !== '') {
-                total += parseInt(period.total_period) || 0;
+                total += parseInt(period.total_period, 10) || 0;
             }
         });
 
@@ -116,8 +162,8 @@ export function calculateCGPA(results: AUResultItem[]): AUCGPACalculation {
 
     // Calculate SGPA for each semester
     const sgpa = Object.entries(sgpaBySemester)
-        .sort(([a], [b]) => parseInt(a) - parseInt(b))
-        .map(([_, data]) => data.credits > 0 ? Math.round((data.points / data.credits) * 100) / 100 : 0);
+        .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
+        .map(([_, semData]) => (semData.credits > 0 ? Math.round((semData.points / semData.credits) * 100) / 100 : 0));
 
     return {
         cgpa: totalCredits > 0 ? Math.round((totalPoints / totalCredits) * 100) / 100 : 0,

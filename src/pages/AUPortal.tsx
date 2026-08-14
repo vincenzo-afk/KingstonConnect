@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAUResultsStore, ALL_AU_GRADES, type AUSubject } from '@/stores/auResultsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { initAUSession, fetchAUResults, type AUSessionInit, type AUParsedSemester } from '@/services/auPortal.service';
 import {
     Calendar,
     Award,
@@ -18,8 +19,11 @@ import {
     CheckCircle2,
     ClipboardList,
     GraduationCap,
-    Lock,
     User,
+    Loader2,
+    Sparkles,
+    ScanSearch,
+    RefreshCcw,
 } from 'lucide-react';
 
 // =============================================================================
@@ -66,10 +70,106 @@ const AUPortalPage: React.FC = () => {
         (user?.semester ?? 5) - 1 || 1
     );
     const [drafts, setDrafts] = useState<DraftSubject[]>([emptyDraft()]);
-    const [session, setSession] = useState(EXAM_SESSIONS[0]);
+    const [examSession, setExamSession] = useState(EXAM_SESSIONS[0]);
     const [regNo, setRegNo] = useState(store.registerNo || user?.rollNumber || '');
     const [dob, setDob] = useState(store.dateOfBirth || '');
     const [identitySaved, setIdentitySaved] = useState(false);
+
+    // ---------- Live AU portal fetch ----------
+    const [session, setSessionState] = useState<AUSessionInit | null>(null);
+    const [captchaCode, setCaptchaCode] = useState('');
+    const [fetchingSession, setFetchingSession] = useState(false);
+    const [fetchingResults, setFetchingResults] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [fetchSuccess, setFetchSuccess] = useState<string | null>(null);
+    const captchaRef = useRef<HTMLImageElement | null>(null);
+
+    const loadSession = async () => {
+        setFetchingSession(true);
+        setFetchError(null);
+        setFetchSuccess(null);
+        try {
+            const s = await initAUSession();
+            setSessionState(s);
+            setCaptchaCode('');
+        } catch (e) {
+            setFetchError(e instanceof Error ? e.message : 'Could not reach the portal server. Please try again.');
+            setSessionState(null);
+        } finally {
+            setFetchingSession(false);
+        }
+    };
+
+    /** Roman → decimal for semester numbers reported by the portal. */
+    const romanToDec = (roman: string): number => {
+        const map: Record<string, number> = {
+            I: 1, II: 2, III: 3, IV: 4, V: 5,
+            VI: 6, VII: 7, VIII: 8, IX: 9, X: 10,
+        };
+        return map[roman.trim().toUpperCase()] || 0;
+    };
+
+    /** Persist a parsed portal semester into the store (grade-aware). */
+    const persistParsedSemester = (parsed: AUParsedSemester, semNo: number) => {
+        const subjects = parsed.subjects
+            .filter((s) => s.code && s.name)
+            .map((s) => {
+                const grade =
+                    s.grade && /^[OABCP][+]?$/i.test(s.grade)
+                        ? (s.grade.toUpperCase() as AUSubject['grade'])
+                        : 'P';
+                const internal = parseInt(s.internal, 10);
+                return {
+                    code: s.code,
+                    name: s.name,
+                    credits: Math.max(1, Math.min(6, parseInt(s.credits, 10) || 3)),
+                    grade,
+                    internalMarks: Number.isNaN(internal) ? undefined : Math.max(0, Math.min(50, internal)),
+                };
+            });
+        if (subjects.length === 0) return;
+        const existing = store.semesters.find((m) => m.semester === semNo);
+        if (existing) {
+            store.updateSemester(semNo, { subjects: [...subjects], examSession: existing.examSession || `Sem ${semNo} (AU portal)` });
+        } else {
+            store.addSemester({ semester: semNo, examSession: `Sem ${semNo} (AU portal)`, subjects });
+        }
+    };
+
+    const submitFetch = async () => {
+        if (!session || !captchaCode.trim() || !regNo.trim() || !dob.trim()) return;
+        setFetchingResults(true);
+        setFetchError(null);
+        setFetchSuccess(null);
+        try {
+            const parsed = await fetchAUResults({
+                registerNo: regNo.trim(),
+                dob: dob.trim(),
+                captchaCode: captchaCode.trim(),
+                tokenName: session.tokenName,
+                tokenValue: session.tokenValue,
+                salt: session.salt,
+                pagetoken: session.pagetoken,
+            });
+            const semNo = romanToDec(parsed.semester) || selectedSemester;
+            persistParsedSemester(parsed, semNo);
+            store.setStudentIdentity(regNo.trim(), dob.trim());
+            setFetchSuccess(
+                `Pulled ${parsed.subjects.length} subject${parsed.subjects.length === 1 ? '' : 's'} from the Anna University portal for Semester ${semNo}${parsed.cgpa ? ` (semester CGPA ${parsed.cgpa})` : ''}. Review and edit them below.`,
+            );
+            // Fresh captcha for the next fetch
+            await loadSession();
+        } catch (e) {
+            setFetchError(e instanceof Error ? e.message : 'Unknown error while fetching results.');
+        } finally {
+            setFetchingResults(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!session && !fetchingSession) loadSession();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const cgpa = store.getCGPA();
     const weakSubjects = store.getWeakSubjects();
@@ -115,11 +215,11 @@ const AUPortalPage: React.FC = () => {
         const existing = store.semesters.find((s) => s.semester === selectedSemester);
         if (existing) {
             store.updateSemester(selectedSemester, {
-                examSession: session,
+                examSession: examSession,
                 subjects: [...existing.subjects, ...subjects],
             });
         } else {
-            store.addSemester({ semester: selectedSemester, examSession: session, subjects });
+            store.addSemester({ semester: selectedSemester, examSession: examSession, subjects });
         }
         setDrafts([emptyDraft()]);
     };
@@ -166,12 +266,98 @@ const AUPortalPage: React.FC = () => {
                     </a>
                 </div>
                 <div className="mt-4 p-3 rounded-xl bg-white/5 border border-white/5 text-xs text-slate-400 flex items-start gap-2">
-                    <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-yellow-400" />
+                    <Sparkles className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-cyan-400" />
                     <span>
-                        The official portal uses a captcha, so results cannot be auto-fetched from this app.
-                        Log in at the official portal when results are published, then record them here so
-                        StudyGPT can track your CGPA, weak subjects and attendance eligibility automatically.
+                        KingstonConnect now pulls your actual results live from the Anna University
+                        portal — enter your register number, DOB and the captcha shown below, and your
+                        subjects, grades and CGPA are recorded automatically so StudyGPT knows your
+                        exact academic profile.
                     </span>
+                </div>
+            </Card>
+
+            {/* Live AU portal fetch */}
+            <Card className="bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <ScanSearch className="w-5 h-5 text-emerald-400" />
+                    Fetch from AU Portal
+                    {fetchSuccess && (
+                        <Badge variant="success" className="gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Live data imported
+                        </Badge>
+                    )}
+                </h3>
+                {fetchError && (
+                    <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300 flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>{fetchError}</span>
+                    </div>
+                )}
+                {fetchSuccess && (
+                    <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-sm text-emerald-300 flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>{fetchSuccess}</span>
+                    </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col justify-center gap-3">
+                        <p className="text-sm text-slate-400">
+                            Your register number and DOB are sent only to the Anna University portal
+                            (via our secure server proxy). Nothing is stored beyond your saved results.
+                        </p>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            icon={fetchingSession ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                            onClick={loadSession}
+                            disabled={fetchingSession || fetchingResults}
+                        >
+                            {fetchingSession ? 'Contacting portal…' : 'Get new captcha'}
+                        </Button>
+                        {session && (
+                            <div className="flex items-center gap-3 rounded-xl bg-white/5 border border-white/5 p-3">
+                                <img
+                                    ref={captchaRef}
+                                    src={`data:${session.captchaMime};base64,${session.captchaBase64}`}
+                                    alt="AU portal captcha"
+                                    className="rounded-lg border border-white/10 bg-white px-2 py-1"
+                                />
+                                <Input
+                                    label="Captcha code"
+                                    placeholder="Type the code shown"
+                                    value={captchaCode}
+                                    onChange={(e) => setCaptchaCode(e.target.value.toUpperCase())}
+                                    onKeyDown={(e) => e.key === 'Enter' && submitFetch()}
+                                    className="flex-1"
+                                    maxLength={8}
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex flex-col justify-center">
+                        <Button
+                            variant="primary"
+                            glow
+                            icon={fetchingResults ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            onClick={submitFetch}
+                            disabled={
+                                fetchingSession ||
+                                fetchingResults ||
+                                !session ||
+                                !captchaCode.trim() ||
+                                !regNo.trim() ||
+                                !dob.trim()
+                            }
+                            className="w-full md:w-auto md:self-start"
+                        >
+                            {fetchingResults ? 'Pulling live results…' : 'Fetch my results from AU'}
+                        </Button>
+                        {fetchingResults && (
+                            <p className="text-xs text-slate-500 mt-2">
+                                Reading the live mark sheet from coe.annauniv.edu…
+                            </p>
+                        )}
+                    </div>
                 </div>
             </Card>
 
@@ -292,8 +478,8 @@ const AUPortalPage: React.FC = () => {
                             <Select
                                 label="Exam Session"
                                 options={EXAM_SESSIONS.map((s) => ({ value: s, label: s }))}
-                                value={session}
-                                onChange={(e) => setSession(e.target.value)}
+                                value={examSession}
+                                onChange={(e) => setExamSession(e.target.value)}
                             />
                         </div>
 
