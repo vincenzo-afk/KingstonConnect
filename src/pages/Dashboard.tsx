@@ -1,6 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
+import {
+    UPCOMING_DEADLINES,
+    RECENT_ACTIVITY,
+    ATTENDANCE_STATS,
+} from '@/data/studentData';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -38,17 +43,22 @@ const getAttendanceColor = (percentage: number) => {
 const StudentDashboard: React.FC = () => {
     const { user } = useAuthStore();
 
-    const upcomingDeadlines = [
-        { id: '1', title: 'DS Assignment 1', subject: 'Data Structures', dueDate: '2024-01-20', type: 'assignment' },
-        { id: '2', title: 'Algorithms Quiz', subject: 'Algorithms', dueDate: '2024-01-22', type: 'quiz' },
-        { id: '3', title: 'DBMS Project', subject: 'Database Systems', dueDate: '2024-01-25', type: 'project' },
-    ];
+    const upcomingDeadlines = UPCOMING_DEADLINES;
 
-    const recentActivity = [
-        { id: '1', title: 'New notes uploaded', description: 'Data Structures - Chapter 5', time: '2 hours ago', icon: BookMarked },
-        { id: '2', title: 'Assignment graded', description: 'Algorithms Assignment 2 - 18/20', time: '5 hours ago', icon: Award },
-        { id: '3', title: 'Attendance marked', description: 'Present in DBMS class', time: '1 day ago', icon: UserCheck },
-    ];
+    const ACTIVITY_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+        notes: BookMarked,
+        graded: Award,
+        attendance: UserCheck,
+        result: Award,
+    };
+
+    const recentActivity = RECENT_ACTIVITY.map((a) => ({
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        time: a.time,
+        icon: ACTIVITY_ICON[a.type] ?? BookMarked,
+    }));
 
     return (
         <div className="space-y-6">
@@ -63,9 +73,13 @@ const StudentDashboard: React.FC = () => {
                 />
                 <StatCard
                     title="Attendance"
-                    value="85%"
+                    value={`${ATTENDANCE_STATS.overall}%`}
                     icon={<UserCheck className="w-6 h-6" />}
-                    trend={{ value: 2, positive: true, label: 'this month' }}
+                    trend={{
+                        value: ATTENDANCE_STATS.overall - ATTENDANCE_STATS.lastMonth,
+                        positive: ATTENDANCE_STATS.overall >= ATTENDANCE_STATS.lastMonth,
+                        label: 'this month',
+                    }}
                     variant="success"
                 />
                 <StatCard

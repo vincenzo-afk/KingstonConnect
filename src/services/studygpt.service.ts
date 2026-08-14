@@ -3,6 +3,10 @@ import { collection, getDocs, query, orderBy, limit, where } from 'firebase/fire
 import { useAuthStore } from '@/stores/authStore';
 import { useAUResultsStore } from '@/stores/auResultsStore';
 import { buildStudentContext, getStudentQuickFacts } from '@/services/studyContext';
+import {
+    getDeadlinesSorted,
+    ATTENDANCE_STATS,
+} from '@/data/studentData';
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant' | 'ai';
@@ -88,7 +92,8 @@ Use the above information to answer if relevant.
 type Intent = 'dsa' | 'algo' | 'dbms' | 'os' | 'cn' | 'se' | 'math'
     | 'physics' | 'chemistry' | 'english' | 'microprocessor' | 'electronics'
     | 'signals' | 'aiml' | 'exam' | 'grades' | 'studyplan' | 'attendance'
-    | 'arrear' | 'portal' | 'housing' | 'notes' | 'generic';
+    | 'arrear' | 'portal' | 'housing' | 'notes' | 'deadlines'
+    | 'focus' | 'generic';
 
 const detectIntent = (q: string): Intent => {
     const l = q.toLowerCase();
@@ -115,6 +120,8 @@ const detectIntent = (q: string): Intent => {
         [/anna university|portal|coe\.annauniv|results portal|results corner/i, 'portal'],
         [/housing|hostel|room|pg|rent|accommodation|flat/i, 'housing'],
         [/notes|upload|study material|syllabus/i, 'notes'],
+        [/deadline|due|when is.*due|submission/i, 'deadlines'],
+        [/what should i focus|focus today|where to start|priorit/i, 'focus'],
     ];
     for (const [re, intent] of tests) {
         if (re.test(l)) return intent;
@@ -691,7 +698,84 @@ const INTENT_RESPONSES: Record<Exclude<Intent, 'generic'>, IntentFn> = {
     portal: respondPortal,
     housing: respondHousing,
     notes: respondNotes,
+    deadlines: buildDeadlinesResponse,
+    focus: buildFocusResponse,
 };
+
+// ---------------------------------------------------------------------------
+// Dashboard-aware responses — deadlines & today's focus use real dashboard
+// data (shared via src/data/studentData.ts, same source as the Dashboard page)
+// ---------------------------------------------------------------------------
+
+function buildDeadlinesResponse(): string {
+    const deadlines = getDeadlinesSorted();
+    const rows = deadlines
+        .map(
+            (d) =>
+                `| ${d.title} | ${d.subject} | ${d.dueDate} | ${d.daysUntil} day(s) | ${d.type} |`
+        )
+        .join('\n');
+    const urgent = deadlines.find((d) => d.daysUntil <= 3);
+    return `## Your Upcoming Deadlines
+
+You have **${deadlines.length} deadline(s)** coming up:
+
+| Item | Subject | Due Date | In | Type |
+| --- | --- | --- | --- | --- |
+${rows}
+
+${
+    urgent
+        ? `**⚠️ Urgent:** "${urgent.title}" is due in **${urgent.daysUntil} day(s)**. Want me to make a crash plan for it?`
+        : 'None of these are urgent yet — but starting early on the DBMS Project is a smart move.'
+}
+
+**Tips:**
+1. Work backward from each due date — aim to finish the first draft 2 days early
+2. For the quiz, practice 16-mark style questions from Anna University previous papers
+3. For the project, define scope today and split it into milestones`;
+}
+
+function buildFocusResponse(): string {
+    const deadlines = getDeadlinesSorted();
+    const urgent = deadlines.filter((d) => d.daysUntil <= 3);
+    const below = ATTENDANCE_STATS.subjectWise.filter((s) => s.percentage < 75);
+    const auStore = useAUResultsStore.getState();
+    const weak = auStore.getWeakSubjects();
+
+    const lines = [
+        '## What You Should Focus On Today',
+        '',
+        'Based on your dashboard data, here is your priority order:',
+        '',
+    ];
+    let n = 1;
+    if (urgent.length > 0) {
+        lines.push(
+            `${n++}. **${urgent[0].title}** (${urgent[0].subject}) — due in ${urgent[0].daysUntil} day(s). Deadline first; even 90 minutes today keeps you on track.`
+        );
+    }
+    if (below.length > 0) {
+        lines.push(
+            `${n++}. **Attend every ${below[0].name} class** — attendance is ${below[0].percentage}%, below the 75% exam-eligibility line.`
+        );
+    }
+    if (weak.length > 0) {
+        lines.push(
+            `${n++}. **Revise ${weak[0].subject.name}** — your weakest recorded subject (grade ${weak[0].subject.grade}, Semester ${weak[0].semester}).`
+        );
+    }
+    lines.push(
+        `${n++}. **Keep your momentum in Algorithms** — you scored 18/20 on the last assignment; a quick revision session maintains the edge.`
+    );
+
+    const schedule = `| When | Focus |
+| --- | --- |
+| Today | ${urgent[0]?.title ?? 'Algorithms revision'} |
+| Tomorrow | ${deadlines[1]?.title ?? 'DBMS Project — milestone 1'} |
+| This week | ${below[0] ? `Attend all ${below[0].name} classes` : 'Complete the first DBMS Project milestone'} |`;
+    return lines.join('\n') + '\n\n**Today\'s mini-schedule:**\n\n' + schedule;
+}
 
 // Fallback local AI response when no backend is available
 const generateLocalResponse = (content: string): string => {

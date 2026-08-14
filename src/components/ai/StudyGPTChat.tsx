@@ -328,6 +328,10 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
     if (quickFacts.attendanceLowSubject) {
         personalizedChips.push({ label: `Fix my attendance in ${quickFacts.attendanceLowSubject}`, query: `How do I fix my attendance in ${quickFacts.attendanceLowSubject}?` });
     }
+    if (quickFacts.urgentDeadlineTitle && quickFacts.urgentDeadlineDays !== null) {
+        personalizedChips.push({ label: `Help with ${quickFacts.urgentDeadlineTitle} (due in ${quickFacts.urgentDeadlineDays}d)`, query: `How do I prepare for ${quickFacts.urgentDeadlineTitle}?` });
+    }
+    personalizedChips.push({ label: 'What should I focus on today?', query: 'Based on my dashboard data, what should I focus on today?' });
     if (auResultsCount === 0) {
         personalizedChips.push({ label: 'How does CGPA/grading work?', query: 'Explain Anna University grades and how CGPA is calculated' });
     } else {
