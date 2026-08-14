@@ -326,7 +326,7 @@ const AUPortalPage: React.FC = () => {
                                     label="Captcha code"
                                     placeholder="Type the code shown"
                                     value={captchaCode}
-                                    onChange={(e) => setCaptchaCode(e.target.value.toUpperCase())}
+                                    onChange={(e) => setCaptchaCode(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && submitFetch()}
                                     className="flex-1"
                                     maxLength={8}

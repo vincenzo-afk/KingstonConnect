@@ -53,9 +53,6 @@ export const LazySettings = lazyLoad(() => import('@/pages/Settings'));
 export const LazyStudents = lazyLoad(() => import('@/pages/Students'));
 export const LazyTeachers = lazyLoad(() => import('@/pages/Teachers'));
 export const LazyDepartments = lazyLoad(() => import('@/pages/Departments'));
-export const LazyHousing = lazyLoad(() => import('@/pages/Housing'));
-export const LazyHousingCompare = lazyLoad(() => import('@/pages/HousingCompare'));
-export const LazyHousingWishlist = lazyLoad(() => import('@/pages/HousingWishlist'));
 export const LazyCGPACalculator = lazyLoad(() => import('@/pages/CGPACalculator'));
 export const LazyAttendancePredictor = lazyLoad(() => import('@/pages/AttendancePredictor'));
 export const LazyEvents = lazyLoad(() => import('@/pages/Events'));
@@ -125,9 +122,6 @@ export const preloadPage = {
     students: () => import('@/pages/Students'),
     teachers: () => import('@/pages/Teachers'),
     departments: () => import('@/pages/Departments'),
-    housing: () => import('@/pages/Housing'),
-    housingCompare: () => import('@/pages/HousingCompare'),
-    housingWishlist: () => import('@/pages/HousingWishlist'),
     cgpaCalculator: () => import('@/pages/CGPACalculator'),
     attendancePredictor: () => import('@/pages/AttendancePredictor'),
     events: () => import('@/pages/Events'),
@@ -174,9 +168,6 @@ export const lazyRoutes: RouteConfig[] = [
     { path: '/students', element: LazyStudents, preload: preloadPage.students },
     { path: '/teachers', element: LazyTeachers, preload: preloadPage.teachers },
     { path: '/departments', element: LazyDepartments, preload: preloadPage.departments },
-    { path: '/housing', element: LazyHousing, preload: preloadPage.housing },
-    { path: '/housing-compare', element: LazyHousingCompare, preload: preloadPage.housingCompare },
-    { path: '/housing-wishlist', element: LazyHousingWishlist, preload: preloadPage.housingWishlist },
     { path: '/cgpa-calculator', element: LazyCGPACalculator, preload: preloadPage.cgpaCalculator },
     { path: '/attendance-predictor', element: LazyAttendancePredictor, preload: preloadPage.attendancePredictor },
     { path: '/events', element: LazyEvents, preload: preloadPage.events },

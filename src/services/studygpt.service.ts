@@ -98,7 +98,7 @@ Use the above information to answer if relevant.
 type Intent = 'dsa' | 'algo' | 'dbms' | 'os' | 'cn' | 'se' | 'math'
     | 'physics' | 'chemistry' | 'english' | 'microprocessor' | 'electronics'
     | 'signals' | 'aiml' | 'exam' | 'grades' | 'studyplan' | 'attendance'
-    | 'arrear' | 'portal' | 'housing' | 'notes' | 'deadlines'
+    | 'arrear' | 'portal' | 'notes' | 'deadlines'
     | 'focus' | 'teacher' | 'generic';
 
 const detectIntent = (q: string): Intent => {
@@ -124,7 +124,6 @@ const detectIntent = (q: string): Intent => {
         [/attendance|75|eligible for exam|attendance shortage|leave/i, 'attendance'],
         [/how to clear|failed|supplementary exam/i, 'arrear'],
         [/anna university|portal|coe\.annauniv|results portal|results corner/i, 'portal'],
-        [/housing|hostel|room|pg|rent|accommodation|flat/i, 'housing'],
         [/teacher|uploaded|announcement|announcements|assignment.*posted|professor|dr\. |prof\.|what did|what has been posted|newly uploaded/i, 'teacher'],
         [/notes|upload|study material|syllabus/i, 'notes'],
         [/deadline|due|when is.*due|submission/i, 'deadlines'],
@@ -620,25 +619,6 @@ const respondPortal = (): string => `## Anna University Official Portal (COE)
 
 Want me to open the official portal for you, or help you record your latest semester results here?`;
 
-const respondHousing = (): string => `## Student Housing
-
-KingstonConnect has a built-in **Housing** section with verified student accommodations near campus.
-
-**What's available there:**
-- 12 verified listings with photos, rent, distance to campus, and amenities
-- Search by location, price range, and amenities (Wi-Fi, AC, mess, laundry)
-- **Wishlist**: save favourites to compare later
-- **Compare mode**: side-by-side comparison of up to 3 listings (rent, distance, amenities)
-- Detail modal for each listing with full info and contact
-
-**Tips when choosing:**
-1. Prioritize **distance ≤ 3 km** — saves roughly an hour daily.
-2. Check if rent includes **mess/food** — a ₹2-3k mess outside adds up fast.
-3. Confirm **Wi-Fi reliability** — essential for online classes and submissions.
-4. For groups, split a 2BHK/3BHK — per-person cost often beats hostel fees.
-
-Head to the **Housing** page in the sidebar to browse listings. Anything specific you'd like to know — budget areas, PG vs flat, or safety checks?`;
-
 const respondNotes = (): string => `## Study Notes (KingstonConnect Notes Library)
 
 The **Notes** page in this app is your shared knowledge base:
@@ -671,7 +651,7 @@ I'm StudyGPT, your personal AI tutor for engineering studies at Kingston Enginee
 - 📚 **Any subject** — DSA, OS, DBMS, Networks, SE, Maths, Physics, Chemistry, English, Microprocessors, Electronics, Signals, AI/ML
 - 📝 **Exam prep** — Anna University 2-mark/16-mark patterns, solved problems, mark strategy
 - 📊 **Your academics** — CGPA analysis, weak subjects, attendance eligibility
-- 🏠 **Campus life** — housing search, study notes, timetable, events
+- 🏫 **Campus life** — study notes, timetable, events
 ${personal ? `\n**About you right now:**\n${personal}` : ''}
 *Tip: The more specific your question, the better I can help. Try things like "explain deadlock with example", "solve this knapsack problem", or "make a study plan for my weak subjects."*
 
@@ -703,7 +683,6 @@ const INTENT_RESPONSES: Record<Exclude<Intent, 'generic' | 'teacher'>, IntentFn>
     attendance: buildAttendanceBlock,
     arrear: respondArrear,
     portal: respondPortal,
-    housing: respondHousing,
     notes: respondNotes,
     deadlines: buildDeadlinesResponse,
     focus: buildFocusResponse,
