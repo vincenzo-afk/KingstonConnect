@@ -15,12 +15,12 @@
  *   Returns: { name, registers: [{regNo, semester, cgpa}], semesters: [...] }
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { Agent } from "https";
+import { Agent as UndiciAgent } from "undici";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-const HTTPS_OPTS = { agent: new Agent({ rejectUnauthorized: false }) };
+const UNDICI_AGENT = new UndiciAgent({ connect: { rejectUnauthorized: false } });
 
 const PORTAL_BASE = "https://coe.annauniv.edu/home";
 const STUDENTS_CORNER = `${PORTAL_BASE}/students_corner.php`;
@@ -43,8 +43,9 @@ async function fetchUrl(
           : "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       ...(opts.headers ?? {}),
     },
-    ...HTTPS_OPTS,
-  } as RequestInit & { agent?: Agent });
+    // @ts-expect-error undici dispatcher — works in Node 22+/Vercel runtime
+    dispatcher: UNDICI_AGENT,
+  } as RequestInit & { dispatcher?: UndiciAgent });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return opts.buffer ? Buffer.from(await res.arrayBuffer()) : res.text();
 }
