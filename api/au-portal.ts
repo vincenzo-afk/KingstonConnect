@@ -297,7 +297,11 @@ async function handleSubmit(body: {
       };
     }
     if (/invalid|captcha/i.test(snippet)) {
-      return { error: "INVALID_CAPTCHA", message: "The captcha code was incorrect. Please try again." };
+      return {
+        error: "INVALID_CAPTCHA",
+        message:
+          "The captcha code was incorrect, or the register number / DOB does not match. Please re-enter the captcha carefully (and verify your DOB format: DD-MM-YYYY) and try again.",
+      };
     }
     if (/no result|not exist|not found/i.test(snippet)) {
       return { error: "NO_RESULT", message: "No results found for this register number / DOB." };
