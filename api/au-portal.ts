@@ -78,12 +78,31 @@ function toBase64(buf: Buffer): { base64: string; mime: string } {
  * captcha image as base64.
  */
 async function handleInit(): Promise<unknown> {
-  const html = await fetchUrl(LOGIN_PAGE);
+  const htmlRes = await fetch(LOGIN_PAGE, {
+    headers: { "User-Agent": UA },
+    // @ts-expect-error undici dispatcher
+    dispatcher: UNDICI_AGENT,
+  });
+  if (!htmlRes.ok) throw new Error(`HTTP ${htmlRes.status} for ${LOGIN_PAGE}`);
+  const html = await htmlRes.text();
+
+  // Capture the AU portal session cookie so the captcha image and the later
+  // credentials POST share the SAME PHP session (the captcha is validated
+  // against the session that issued the image).
+  let phpsessid = "";
+  const setCookie = htmlRes.headers.get("set-cookie");
+  if (setCookie) {
+    const m = setCookie.match(/PHPSESSID=([A-Za-z0-9,]+)/);
+    if (m) phpsessid = m[1];
+  }
 
   const hidden = allHiddenInputs(html);
 
-  // Captcha image
-  const imgBuf = await fetchUrl(CAPTCHA_URL, { buffer: true });
+  // Captcha image — same session as the login page
+  const imgBuf = await fetchUrl(CAPTCHA_URL, {
+    buffer: true,
+    headers: { ...(phpsessid ? { Cookie: `PHPSESSID=${phpsessid}` } : {}) },
+  });
   const { base64, mime } = toBase64(imgBuf);
 
   // The student login form carries a dynamic self-valued hidden token
@@ -98,6 +117,7 @@ async function handleInit(): Promise<unknown> {
     tokenValue: hidden[tokenName] ?? "",
     captchaBase64: base64,
     captchaMime: mime,
+    phpsessid,
     hidden,
   };
 }
@@ -250,6 +270,7 @@ async function handleSubmit(body: {
   security_code_student?: string;
   tokenName?: string;
   tokenValue?: string;
+  phpsessid?: string;
 }): Promise<unknown> {
   const {
     register_no,
@@ -257,6 +278,7 @@ async function handleSubmit(body: {
     security_code_student,
     tokenName,
     tokenValue,
+    phpsessid,
   } = body;
 
   if (!register_no || !dob || !security_code_student) {
@@ -281,6 +303,7 @@ async function handleSubmit(body: {
       "Content-Type": "application/x-www-form-urlencoded",
       Origin: "https://coe.annauniv.edu",
       Referer: LOGIN_PAGE,
+      ...(phpsessid ? { Cookie: `PHPSESSID=${phpsessid}` } : {}),
     },
   });
 
@@ -323,6 +346,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.query.action === "init") {
         const data = await handleInit();
         return res.status(200).json(data);
+      }
+      if (req.query.action === "echo-session") {
+        // Debug helper: confirm the session cookie round-trips correctly.
+        const phpsessid = String(req.query.phpsessid ?? "");
+        const probe = await fetch(CAPTCHA_URL, {
+          headers: {
+            "User-Agent": UA,
+            ...(phpsessid ? { Cookie: `PHPSESSID=${phpsessid}` } : {}),
+          },
+          // @ts-expect-error undici dispatcher
+          dispatcher: UNDICI_AGENT,
+        });
+        return res.status(200).json({ ok: true, probeStatus: probe.status });
       }
       return res.status(400).json({ error: "MISSING_ACTION", message: "Use ?action=init" });
     }

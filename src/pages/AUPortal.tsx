@@ -148,8 +148,6 @@ const AUPortalPage: React.FC = () => {
                 captchaCode: captchaCode.trim(),
                 tokenName: session.tokenName,
                 tokenValue: session.tokenValue,
-                salt: session.salt,
-                pagetoken: session.pagetoken,
             });
             const semNo = romanToDec(parsed.semester) || selectedSemester;
             persistParsedSemester(parsed, semNo);

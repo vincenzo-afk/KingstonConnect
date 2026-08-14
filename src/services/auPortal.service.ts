@@ -31,7 +31,16 @@ export interface AUSessionInit {
   tokenValue: string;
   captchaBase64: string;
   captchaMime: string;
+  phpsessid: string;
   hidden?: Record<string, string>;
+}
+
+/** In-memory AU portal session cookie, kept for the lifetime of the page. */
+let auSessionId = "";
+
+/** Current AU portal session id (for debugging). */
+export function getAUSessionId(): string {
+  return auSessionId;
 }
 
 export interface AUFetchError {
@@ -52,13 +61,15 @@ function assertOk(res: Response): void {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
-/** Fetch the login page tokens + captcha image. */
+/** Fetch the login page tokens + captcha image (server session cookie retained). */
 export async function initAUSession(): Promise<AUSessionInit> {
   const res = await fetch('/api/au-portal?action=init');
   assertOk(res);
   const json = await res.json();
   if (isFetchError(json)) throw new Error(json.message);
-  return json as AUSessionInit;
+  const init = json as AUSessionInit;
+  if (init.phpsessid) auSessionId = init.phpsessid;
+  return init;
 }
 
 /** Submit credentials + captcha and get parsed results. */
@@ -68,8 +79,6 @@ export async function fetchAUResults(params: {
   captchaCode: string;
   tokenName: string;
   tokenValue: string;
-  salt: string;
-  pagetoken: string;
 }): Promise<AUParsedSemester> {
   const res = await fetch('/api/au-portal', {
     method: 'POST',
@@ -80,6 +89,7 @@ export async function fetchAUResults(params: {
       security_code_student: params.captchaCode,
       tokenName: params.tokenName,
       tokenValue: params.tokenValue,
+      phpsessid: auSessionId,
     }),
   });
   if (!res.ok) {
