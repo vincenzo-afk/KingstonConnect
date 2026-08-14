@@ -1,4 +1,7 @@
 import type { Profile } from '@/stores/authStore';
+import {
+    getTeacherContentIndex,
+} from '@/data/teacherContent';
 import { useAUResultsStore } from '@/stores/auResultsStore';
 import {
     ATTENDANCE_STATS,
@@ -229,6 +232,17 @@ ${deadlinesBlock}
 ${activityBlock}
 
 ${examFormat}
+
+## Teacher Uploads (everything teachers have posted — you MUST know all of this)
+${getTeacherContentIndex()
+    .map(
+        (x) =>
+            `- [${x.source}] **${x.title}** (${x.subject}, ${x.date}): ${x.detail}`
+    )
+    .join('\n')}
+Whenever the student asks about assignments, announcements, notes, uploaded
+material, or anything a teacher posted, answer directly from the list above
+instead of giving generic advice. Cite the exact title.
 
 ${coachingProfile}
 `.trim();

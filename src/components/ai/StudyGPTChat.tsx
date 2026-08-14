@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores';
 import { sendMessage, setColabUrl, getColabUrl } from '@/services/studygpt.service';
 import { getStudentQuickFacts } from '@/services/studyContext';
 import { useAUResultsStore } from '@/stores/auResultsStore';
+import { FORMAT_RULES } from '@/services/formatEngine';
 import {
     Send,
     Paperclip,
@@ -185,6 +186,8 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [answerFormat, setAnswerFormat] = useState<string | null>(null);
+    const [showFormatPicker, setShowFormatPicker] = useState(false);
     const [apiUrl, setApiUrl] = useState(getColabUrl() || '');
     const [sessionId] = useState(() => Date.now().toString());
 
@@ -206,18 +209,23 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
     }, [messages, isLoading]);
 
     const handleSend = useCallback(async () => {
-        if (!input.trim() && attachments.length === 0) return;
+        // Append the selected answer format to the query so the service route
+        // picks it up for BOTH the local engine and the online backend.
+        const effectiveInput = answerFormat
+            ? `${input.trim()} — answer in ${answerFormat} format`
+            : input.trim();
+        if (!effectiveInput && attachments.length === 0) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
             role: 'user',
-            content: input,
+            content: effectiveInput,
             timestamp: new Date(),
             attachments: attachments.map(f => f.name),
         };
 
         setMessages(prev => [...prev, userMessage]);
-        const currentInput = input;
+        const currentInput = effectiveInput;
         setInput('');
         setAttachments([]);
         setIsLoading(true);
@@ -267,7 +275,7 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [input, attachments, sessionId, user?.id, messages]);
+    }, [input, answerFormat, attachments, sessionId, user?.id, messages]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -332,6 +340,10 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
         personalizedChips.push({ label: `Help with ${quickFacts.urgentDeadlineTitle} (due in ${quickFacts.urgentDeadlineDays}d)`, query: `How do I prepare for ${quickFacts.urgentDeadlineTitle}?` });
     }
     personalizedChips.push({ label: 'What should I focus on today?', query: 'Based on my dashboard data, what should I focus on today?' });
+    personalizedChips.push({ label: 'Tell me what teachers uploaded', query: 'What have my teachers uploaded or announced recently?' });
+    if (quickFacts.weakSubjectName) {
+        personalizedChips.push({ label: `Quiz me on ${quickFacts.weakSubjectName}`, query: `Give me an interactive quiz on ${quickFacts.weakSubjectName}` });
+    }
     if (auResultsCount === 0) {
         personalizedChips.push({ label: 'How does CGPA/grading work?', query: 'Explain Anna University grades and how CGPA is calculated' });
     } else {
@@ -517,6 +529,54 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                         </div>
                     )}
 
+                    {/* Answer-as format selector: the full ~200-format catalog is
+                        normalized into grouped picks; the chosen label is
+                        appended to the query so the AI answers in that format */}
+                    {showFormatPicker ? (
+                        <div className="mb-3 p-3 bg-white/5 border border-white/10 rounded-2xl">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-slate-300">Answer as…</span>
+                                <button
+                                    onClick={() => setShowFormatPicker(false)}
+                                    className="text-xs text-cyan-400 hover:text-cyan-300"
+                                >
+                                    Done
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5 max-h-[220px] overflow-y-auto scrollbar-hide">
+                                {['Text & Notes', 'Exams', 'Programming', 'Visual & Diagrams', 'Tables & Business', 'Learning & Modes'].map(group => (
+                                    <React.Fragment key={group}>
+                                        <div className="col-span-3 sm:col-span-4 md:col-span-6 text-[10px] uppercase tracking-wider text-slate-500 mt-1 mb-0.5">
+                                            {group}
+                                        </div>
+                                        {FORMAT_RULES.filter(r => {
+                                            if (group === 'Text &amp; Notes') return ['mcq', 'flashcards', 'cheatSheet', 'revisionNotes', 'mnemonics', 'quiz', 'twoMark', 'sixteenMark', 'glossary', 'faq', 'trueFalse', 'fillBlanks', 'matchFollowing', 'caseStudy', 'rapidFire', 'interview', 'viva', 'labRecord', 'selfAssessment', 'mistakeAnalysis'].includes(r.id);
+                                            if (group === 'Exams') return ['twoMark', 'sixteenMark', 'examAnswer', 'rapidFire'].includes(r.id);
+                                            if (group === 'Programming') return ['code', 'pseudocode', 'dryRun', 'ascii'].includes(r.id);
+                                            if (group === 'Visual &amp; Diagrams') return ['flowchart', 'mindmap', 'sequenceDiagram', 'decisionTree', 'ascii'].includes(r.id);
+                                            if (group === 'Tables &amp; Business') return ['comparisonTable', 'differenceTable', 'swot', 'caseStudy', 'formulaSheet'].includes(r.id);
+                                            return ['eli5', 'analogy', 'story', 'stepByStep'].includes(r.id);
+                                        }).map(r => (
+                                            <button
+                                                key={`${group}-${r.id}`}
+                                                onClick={() => { setAnswerFormat(r.label); setShowFormatPicker(false); }}
+                                                className="px-2 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300 hover:bg-white/10 transition-colors truncate"
+                                            >
+                                                {r.label}
+                                            </button>
+                                        ))}
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                            {answerFormat && (
+                                <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                                    <span>Answering as: <span className="text-cyan-400 font-medium">{answerFormat}</span></span>
+                                    <button onClick={() => setAnswerFormat(null)} className="text-slate-500 hover:text-red-400"><X className="w-3 h-3" /></button>
+                                </div>
+                            )}
+                        </div>
+                    ) : null}
+
                     <div className="relative flex items-end gap-2 p-2 bg-white/5 border border-white/10 rounded-2xl focus-within:border-cyan-500/50 focus-within:bg-white/10 transition-all">
                         <input
                             type="file"
@@ -543,6 +603,16 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                             rows={1}
                         />
 
+                        <button
+                            onClick={() => setShowFormatPicker(v => !v)}
+                            title="Answer as… (MCQ, flashcards, 2-mark, flowchart …)"
+                            className={cn(
+                                'p-2.5 rounded-xl transition-colors',
+                                answerFormat ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:text-white hover:bg-white/10'
+                            )}
+                        >
+                            <Sparkles className="w-5 h-5" />
+                        </button>
                         <Button
                             variant="primary"
                             glow

@@ -3,6 +3,12 @@ import { collection, getDocs, query, orderBy, limit, where } from 'firebase/fire
 import { useAuthStore } from '@/stores/authStore';
 import { useAUResultsStore } from '@/stores/auResultsStore';
 import { buildStudentContext, getStudentQuickFacts } from '@/services/studyContext';
+import { getRelevantTeacherContent } from '@/data/teacherContent';
+import {
+    applyFormats,
+    buildModeInstructions,
+    detectFormats,
+} from '@/services/formatEngine';
 import {
     getDeadlinesSorted,
     ATTENDANCE_STATS,
@@ -93,7 +99,7 @@ type Intent = 'dsa' | 'algo' | 'dbms' | 'os' | 'cn' | 'se' | 'math'
     | 'physics' | 'chemistry' | 'english' | 'microprocessor' | 'electronics'
     | 'signals' | 'aiml' | 'exam' | 'grades' | 'studyplan' | 'attendance'
     | 'arrear' | 'portal' | 'housing' | 'notes' | 'deadlines'
-    | 'focus' | 'generic';
+    | 'focus' | 'teacher' | 'generic';
 
 const detectIntent = (q: string): Intent => {
     const l = q.toLowerCase();
@@ -119,6 +125,7 @@ const detectIntent = (q: string): Intent => {
         [/how to clear|failed|supplementary exam/i, 'arrear'],
         [/anna university|portal|coe\.annauniv|results portal|results corner/i, 'portal'],
         [/housing|hostel|room|pg|rent|accommodation|flat/i, 'housing'],
+        [/teacher|uploaded|announcement|announcements|assignment.*posted|professor|dr\. |prof\.|what did|what has been posted|newly uploaded/i, 'teacher'],
         [/notes|upload|study material|syllabus/i, 'notes'],
         [/deadline|due|when is.*due|submission/i, 'deadlines'],
         [/what should i focus|focus today|where to start|priorit/i, 'focus'],
@@ -675,7 +682,7 @@ You asked: "${q}" — could you rephrase with the subject or topic you have in m
 
 type IntentFn = () => string;
 
-const INTENT_RESPONSES: Record<Exclude<Intent, 'generic'>, IntentFn> = {
+const INTENT_RESPONSES: Record<Exclude<Intent, 'generic' | 'teacher'>, IntentFn> = {
     dsa: respondDSA,
     algo: respondAlgo,
     dbms: respondDBMS,
@@ -777,11 +784,25 @@ function buildFocusResponse(): string {
     return lines.join('\n') + '\n\n**Today\'s mini-schedule:**\n\n' + schedule;
 }
 
+// Teacher-uploaded content awareness: announcements, assignments, notes
+function respondTeacher(content: string): string {
+    const teacherBlock = getRelevantTeacherContent(content);
+    const formats = detectFormats(content);
+    const formatted = applyFormats(teacherBlock, formats);
+    return `${formatted}${buildModeInstructions(content)}
+
+*Tip: if you want a deeper answer on any of these, ask me directly — e.g. "summarize the Database Design Project" or "explain the Process Scheduling graded assignment". You can also pick a format with the sparkles button (MCQs, flashcards, 2-mark answer, flowchart …).*`;
+}
+
 // Fallback local AI response when no backend is available
 const generateLocalResponse = (content: string): string => {
     const intent = detectIntent(content);
+    if (intent === 'teacher') return respondTeacher(content);
     if (intent === 'generic') return respondGeneric(content);
-    return INTENT_RESPONSES[intent]();
+    const core = INTENT_RESPONSES[intent]();
+    // Apply any requested output formats / learning modes from the catalog
+    const formats = detectFormats(content);
+    return applyFormats(core, formats) + buildModeInstructions(content);
 };
 
 // =============================================================================
@@ -802,14 +823,23 @@ export const sendMessage = async (
     // Student-aware context: profile + AU results + attendance
     const studentContext = buildStudentContext(user);
 
+    // Teacher-uploaded content: everything teachers posted must be known
+    const teacherContent = getRelevantTeacherContent(content);
+
+    // Append teacher content to the user message so the online backend can
+    // cite uploaded material, and also for the local path below.
+    const userMessage = `${content}${teacherContent.startsWith('Nothing') ? '' : '\n\n' + teacherContent}`;
+
     // If no backend URL, use local fallback
     if (!apiUrl) {
         // Retrieve any relevant context from notes
         const context = await retrieveContext(content);
 
+        // Teacher-uploaded material always flows into local answers
+        const localAnswer = generateLocalResponse(userMessage);
         return {
-            content: generateLocalResponse(content),
-            sources: context ? ['Local Knowledge Base', 'Student Notes'] : ['Local Knowledge Base']
+            content: localAnswer,
+            sources: context ? ['Local Knowledge Base', 'Teacher Uploads', 'Student Notes'] : ['Local Knowledge Base', 'Teacher Uploads']
         };
     }
 
@@ -838,7 +868,7 @@ Format your response in clean Markdown.`;
     const messages: ChatMessage[] = [
         { role: 'system', content: systemPrompt },
         ...historyMessages,
-        { role: 'user', content: context ? `${context}\n\nQuestion: ${content}` : content }
+        { role: 'user', content: context ? `${context}\n\nQuestion: ${userMessage}` : userMessage }
     ];
 
     try {
