@@ -40,17 +40,17 @@ export { ErrorBoundary, PageErrorBoundary, InlineError, EmptyState } from './Err
 // Accessibility
 export {
     FocusTrap,
-    useFocusTrap,
     VisuallyHidden,
     SkipLink,
     LiveRegion,
-    useAnnounce,
-    useRovingTabindex,
-    getFocusableElements,
+} from './Accessibility';
+export { useFocusTrap, useAnnounce, useRovingTabindex } from './accessibilityHooks';
+export { getFocusableElements } from './accessibilityUtils';
+export {
     useId,
     mergeRefs,
     usePrefersReducedMotion,
-} from './Accessibility';
+} from './accessibilityUtils';
 
 // Mobile Components
 export { BottomSheet, ActionSheet } from './BottomSheet';

@@ -305,6 +305,7 @@ interface UseInfiniteScrollOptions {
     rootMargin?: string;
 }
 
+    // eslint-disable-next-line react-refresh/only-export-components
 export function useInfiniteScroll(options: UseInfiniteScrollOptions) {
     const { hasMore, isLoading, onLoadMore, threshold = 0.5, rootMargin = '100px' } = options;
     const sentinelRef = useRef<HTMLDivElement>(null);

@@ -53,6 +53,7 @@ export const LazySettings = lazyLoad(() => import('@/pages/Settings'));
 export const LazyStudents = lazyLoad(() => import('@/pages/Students'));
 export const LazyTeachers = lazyLoad(() => import('@/pages/Teachers'));
 export const LazyDepartments = lazyLoad(() => import('@/pages/Departments'));
+export const LazyHousing = lazyLoad(() => import('@/pages/Housing'));
 
 // =============================================================================
 // SUSPENSE WRAPPERS
@@ -101,6 +102,7 @@ export const InlineLoader: React.FC<{ className?: string }> = ({ className }) =>
 /**
  * Preload a page component (useful for hover-based prefetching)
  */
+    // eslint-disable-next-line react-refresh/only-export-components
 export const preloadPage = {
     dashboard: () => import('@/pages/Dashboard'),
     studyGPT: () => import('@/pages/StudyGPT'),
@@ -118,11 +120,13 @@ export const preloadPage = {
     students: () => import('@/pages/Students'),
     teachers: () => import('@/pages/Teachers'),
     departments: () => import('@/pages/Departments'),
+    housing: () => import('@/pages/Housing'),
 };
 
 /**
  * Preload multiple pages at once (useful on app mount)
  */
+    // eslint-disable-next-line react-refresh/only-export-components
 export function preloadCriticalPages() {
     // Preload most commonly accessed pages
     preloadPage.dashboard();
@@ -140,6 +144,7 @@ export interface RouteConfig {
     preload?: () => Promise<any>;
 }
 
+    // eslint-disable-next-line react-refresh/only-export-components
 export const lazyRoutes: RouteConfig[] = [
     { path: '/dashboard', element: LazyDashboard, preload: preloadPage.dashboard },
     { path: '/studygpt', element: LazyStudyGPT, preload: preloadPage.studyGPT },
@@ -157,4 +162,5 @@ export const lazyRoutes: RouteConfig[] = [
     { path: '/students', element: LazyStudents, preload: preloadPage.students },
     { path: '/teachers', element: LazyTeachers, preload: preloadPage.teachers },
     { path: '/departments', element: LazyDepartments, preload: preloadPage.departments },
+    { path: '/housing', element: LazyHousing, preload: preloadPage.housing },
 ];

@@ -12,6 +12,7 @@ interface UsePullToRefreshOptions {
     disabled?: boolean;
 }
 
+    // eslint-disable-next-line react-refresh/only-export-components
 export function usePullToRefresh(options: UsePullToRefreshOptions) {
     const { onRefresh, threshold = 80, disabled = false } = options;
     const [isPulling, setIsPulling] = useState(false);
@@ -161,6 +162,7 @@ interface UseSwipeOptions {
     preventDefault?: boolean;
 }
 
+    // eslint-disable-next-line react-refresh/only-export-components
 export function useSwipe(options: UseSwipeOptions) {
     const { onSwipe, threshold = 50, preventDefault = false } = options;
     const startX = useRef(0);

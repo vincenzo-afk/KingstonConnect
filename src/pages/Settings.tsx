@@ -4,49 +4,50 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Sun, Moon, Bell, Shield, Globe, Palette } from 'lucide-react';
 
+const SettingSection: React.FC<{
+    title: string;
+    description?: string;
+    children: React.ReactNode
+}> = ({ title, description, children }) => (
+    <div className="p-4 rounded-xl bg-white/5 hover:bg-white/[0.07] transition-colors">
+        <div className="flex items-center justify-between gap-4">
+            <div>
+                <p className="font-medium text-white">{title}</p>
+                {description && (
+                    <p className="text-sm text-slate-400 mt-0.5">{description}</p>
+                )}
+            </div>
+            {children}
+        </div>
+    </div>
+);
+
+const ToggleSwitch: React.FC<{
+    checked: boolean;
+    onChange: () => void
+}> = ({ checked, onChange }) => (
+    <button
+        onClick={onChange}
+        className={`
+            relative w-14 h-7 rounded-full transition-colors
+            ${checked
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                : 'bg-white/10'
+            }
+        `}
+        type="button"
+    >
+        <div
+            className={`
+                absolute top-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform
+                ${checked ? 'left-8' : 'left-1'}
+            `}
+        />
+    </button>
+);
+
 const SettingsPage: React.FC = () => {
     const { theme, toggleTheme } = useUIStore();
-
-    const SettingSection: React.FC<{
-        title: string;
-        description?: string;
-        children: React.ReactNode
-    }> = ({ title, description, children }) => (
-        <div className="p-4 rounded-xl bg-white/5 hover:bg-white/[0.07] transition-colors">
-            <div className="flex items-center justify-between gap-4">
-                <div>
-                    <p className="font-medium text-white">{title}</p>
-                    {description && (
-                        <p className="text-sm text-slate-400 mt-0.5">{description}</p>
-                    )}
-                </div>
-                {children}
-            </div>
-        </div>
-    );
-
-    const ToggleSwitch: React.FC<{
-        checked: boolean;
-        onChange: () => void
-    }> = ({ checked, onChange }) => (
-        <button
-            onClick={onChange}
-            className={`
-                relative w-14 h-7 rounded-full transition-colors
-                ${checked
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500'
-                    : 'bg-white/10'
-                }
-            `}
-        >
-            <div
-                className={`
-                    absolute top-1 w-5 h-5 bg-white rounded-full shadow-lg transition-transform
-                    ${checked ? 'left-8' : 'left-1'}
-                `}
-            />
-        </button>
-    );
 
     return (
         <div className="space-y-6 max-w-3xl mx-auto">

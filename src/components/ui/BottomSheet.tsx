@@ -48,13 +48,19 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         return window.innerHeight * snapPoints[snapIndex];
     }, [snapPoints]);
 
-    // Initialize height when opened
+    // Initialize height when opened; defer the state update to after paint
     useEffect(() => {
-        if (open) {
-            setIsAnimating(true);
+        if (!open) return;
+
+        let cancelled = false;
+        requestAnimationFrame(() => {
+            if (cancelled) return;
             setCurrentHeight(getHeightFromSnap(defaultSnap));
-            setTimeout(() => setIsAnimating(false), 300);
-        }
+        });
+
+        return () => {
+            cancelled = true;
+        };
     }, [open, defaultSnap, getHeightFromSnap]);
 
     // Handle escape key

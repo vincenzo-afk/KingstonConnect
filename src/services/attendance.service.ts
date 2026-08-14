@@ -150,7 +150,7 @@ export async function getAttendanceByDate(
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    let q = query(
+    const q = query(
         collection(db, COLLECTIONS.ATTENDANCE),
         where('date', '>=', Timestamp.fromDate(startOfDay)),
         where('date', '<=', Timestamp.fromDate(endOfDay)),

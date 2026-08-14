@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import {
     Menu, ChevronRight, LogOut, Home, Zap, UserCheck, Award,
     Calendar, Clock, ClipboardList, BookMarked, MessageSquare,
-    Bell, ExternalLink, Users, GraduationCap, Building2
+    Bell, ExternalLink, Users, GraduationCap, Building2, Landmark
 } from 'lucide-react';
 
 // =============================================================================
@@ -32,6 +32,7 @@ export const Sidebar: React.FC = () => {
             { path: '/chat', icon: MessageSquare, label: 'Chat' },
             { path: '/announcements', icon: Bell, label: 'Announcements' },
             { path: '/au-portal', icon: ExternalLink, label: 'AU Portal' },
+            { path: '/housing', icon: Landmark, label: 'Housing' },
         ];
 
         if (user?.role === 'teacher' || user?.role === 'hod' || user?.role === 'principal') {
@@ -74,7 +75,7 @@ export const Sidebar: React.FC = () => {
         );
     };
 
-    const SidebarContent = () => (
+    const sidebarContent = (
         <>
             {/* Header */}
             <div className="p-6 border-b border-white/10 flex items-center justify-between">
@@ -154,7 +155,7 @@ export const Sidebar: React.FC = () => {
                     sidebarCollapsed ? 'w-20' : 'w-64'
                 )}
             >
-                <SidebarContent />
+                {sidebarContent}
             </aside>
 
             {/* Mobile Sidebar Overlay */}
@@ -165,7 +166,7 @@ export const Sidebar: React.FC = () => {
                         onClick={() => setSidebarMobileOpen(false)}
                     />
                     <aside className="fixed left-0 top-0 h-screen w-72 bg-[#0f1419] border-r border-white/10 z-50 md:hidden flex flex-col animate-slide-in-left">
-                        <SidebarContent />
+                        {sidebarContent}
                     </aside>
                 </>
             )}

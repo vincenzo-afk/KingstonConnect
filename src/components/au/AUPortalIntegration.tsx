@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores';
 import {
     GraduationCap,
     Link2,
@@ -123,11 +123,7 @@ const AUPortalIntegration: React.FC<AUPortalIntegrationProps> = ({ compact = fal
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    useEffect(() => {
-        checkApiAndLoadData();
-    }, [user?.id]);
-
-    const checkApiAndLoadData = async () => {
+    const checkApiAndLoadData = useCallback(async () => {
         if (!user?.id) return;
 
         // Check if API is available
@@ -146,7 +142,11 @@ const AUPortalIntegration: React.FC<AUPortalIntegrationProps> = ({ compact = fal
                 loadStudentData(cached.data);
             }
         }
-    };
+    }, [user?.id]);
+
+    useEffect(() => {
+        void checkApiAndLoadData();
+    }, [checkApiAndLoadData]);
 
     const loadStudentData = (data: AUStudentData) => {
         setStudentData(data);

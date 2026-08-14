@@ -3,7 +3,7 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores';
 import {
     Users,
     ClipboardCheck,
@@ -46,7 +46,7 @@ const upcomingEvents = [
 
 export const TeacherDashboard: React.FC = () => {
     const { user } = useAuthStore();
-    const sectionName = user?.section ? `${user.department?.code || ''}-${user.year}${user.section}` : 'Your Class';
+    const sectionName = user?.section ? `${user.department}-${user.semester ?? 0}${user.section}` : 'Your Class';
 
     return (
         <div className="space-y-6 animate-fade-in">

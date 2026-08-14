@@ -46,7 +46,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
 Card.displayName = 'Card';
 
 // Card Header
-interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> { }
+type CardHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 
 export const CardHeader: React.FC<CardHeaderProps> = ({ className, children, ...props }) => {
     return (
@@ -70,7 +70,7 @@ export const CardTitle: React.FC<CardTitleProps> = ({ className, as: Tag = 'h3',
 };
 
 // Card Description
-interface CardDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> { }
+type CardDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 export const CardDescription: React.FC<CardDescriptionProps> = ({ className, children, ...props }) => {
     return (
@@ -81,7 +81,7 @@ export const CardDescription: React.FC<CardDescriptionProps> = ({ className, chi
 };
 
 // Card Content
-interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> { }
+type CardContentProps = React.HTMLAttributes<HTMLDivElement>;
 
 export const CardContent: React.FC<CardContentProps> = ({ className, children, ...props }) => {
     return (
@@ -92,7 +92,7 @@ export const CardContent: React.FC<CardContentProps> = ({ className, children, .
 };
 
 // Card Footer
-interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> { }
+type CardFooterProps = React.HTMLAttributes<HTMLDivElement>;
 
 export const CardFooter: React.FC<CardFooterProps> = ({ className, children, ...props }) => {
     return (

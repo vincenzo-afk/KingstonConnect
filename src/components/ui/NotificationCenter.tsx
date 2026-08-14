@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -190,50 +190,54 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     );
 };
 
+// Default seed notifications (stable across renders)
+const DEFAULT_NOTIFICATIONS: Notification[] = [
+    {
+        id: '1',
+        type: 'announcement',
+        title: 'Holiday Notice',
+        message: 'Republic Day holiday on January 26. College will remain closed.',
+        timestamp: new Date(Date.now() - 1000 * 60 * 30),
+        read: false,
+    },
+    {
+        id: '2',
+        type: 'attendance',
+        title: 'Low Attendance Warning',
+        message: 'Your attendance in DBMS is below 75%. Please attend regularly.',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+        read: false,
+    },
+    {
+        id: '3',
+        type: 'result',
+        title: 'Unit Test Results Published',
+        message: 'Unit Test 1 results for Database Management are now available.',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
+        read: true,
+    },
+    {
+        id: '4',
+        type: 'assignment',
+        title: 'Assignment Due Tomorrow',
+        message: 'Database ER Diagram Design is due tomorrow at 11:59 PM.',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        read: true,
+    },
+    {
+        id: '5',
+        type: 'chat',
+        title: 'New Message from Prof. Kumar',
+        message: 'Regarding the project submission...',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48),
+        read: true,
+    },
+];
+
 // Custom hook for managing notifications
+    // eslint-disable-next-line react-refresh/only-export-components
 export const useNotifications = () => {
-    const [notifications, setNotifications] = useState<Notification[]>([
-        {
-            id: '1',
-            type: 'announcement',
-            title: 'Holiday Notice',
-            message: 'Republic Day holiday on January 26. College will remain closed.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 30),
-            read: false,
-        },
-        {
-            id: '2',
-            type: 'attendance',
-            title: 'Low Attendance Warning',
-            message: 'Your attendance in DBMS is below 75%. Please attend regularly.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-            read: false,
-        },
-        {
-            id: '3',
-            type: 'result',
-            title: 'Unit Test Results Published',
-            message: 'Unit Test 1 results for Database Management are now available.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-            read: true,
-        },
-        {
-            id: '4',
-            type: 'assignment',
-            title: 'Assignment Due Tomorrow',
-            message: 'Database ER Diagram Design is due tomorrow at 11:59 PM.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-            read: true,
-        },
-        {
-            id: '5',
-            type: 'chat',
-            title: 'New Message from Prof. Kumar',
-            message: 'Regarding the project submission...',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48),
-            read: true,
-        },
-    ]);
+    const [notifications, setNotifications] = useState<Notification[]>(DEFAULT_NOTIFICATIONS);
 
     const markAsRead = (id: string) => {
         setNotifications(prev =>

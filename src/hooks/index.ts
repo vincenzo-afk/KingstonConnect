@@ -42,17 +42,19 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
         callbackRef.current = callback;
     }, [callback]);
 
-    return useCallback(
-        ((...args: Parameters<T>) => {
+    const debounced = useCallback(
+        function (...args: Parameters<T>): void {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
             timeoutRef.current = setTimeout(() => {
                 callbackRef.current(...args);
             }, delay);
-        }) as T,
+        },
         [delay]
     );
+
+    return debounced as T;
 }
 
 // =============================================================================
@@ -134,12 +136,10 @@ export function useMediaQuery(query: string): boolean {
 
         const mediaQuery = window.matchMedia(query);
         const handler = (event: MediaQueryListEvent) => setMatches(event.matches);
-
-        setMatches(mediaQuery.matches);
         mediaQuery.addEventListener('change', handler);
 
         return () => mediaQuery.removeEventListener('change', handler);
-    }, [query]);
+    }, [query, matches]);
 
     return matches;
 }
@@ -154,13 +154,12 @@ export const useIsDesktop = () => useMediaQuery('(min-width: 1024px)');
 // =============================================================================
 
 export function usePrevious<T>(value: T): T | undefined {
-    const ref = useRef<T | undefined>(undefined);
-
+    const [previous, setPrevious] = useState<T | undefined>(undefined);
     useEffect(() => {
-        ref.current = value;
+        setPrevious(value);
     }, [value]);
 
-    return ref.current;
+    return previous;
 }
 
 // =============================================================================
@@ -203,9 +202,16 @@ export function useAsync<T>(
         }
     }, [asyncFunction]);
 
+    const executedRef = useRef(false);
+
     useEffect(() => {
-        if (immediate) {
-            execute();
+        // Run exactly once when immediate is true; subsequent calls
+        // should be triggered explicitly via the returned execute().
+        // Deferred to after paint so the setState inside execute() runs
+        // in an event-handler-like context instead of inside the effect.
+        if (immediate && !executedRef.current) {
+            executedRef.current = true;
+            requestAnimationFrame(() => void execute());
         }
     }, [execute, immediate]);
 
@@ -439,15 +445,12 @@ export function usePagination(totalItems: number, initialPageSize: number = 10):
         setCurrentPage(1);
     }, []);
 
-    // Reset to page 1 if current page exceeds total
-    useEffect(() => {
-        if (currentPage > totalPages && totalPages > 0) {
-            setCurrentPage(totalPages);
-        }
-    }, [currentPage, totalPages]);
+    // Return the page clamped to the valid range; a new page request
+    // should come through goToPage when totalItems shrinks.
+    const resolvedPage = totalPages > 0 && currentPage > totalPages ? totalPages : currentPage;
 
     return {
-        currentPage,
+        currentPage: resolvedPage,
         totalPages,
         pageSize,
         startIndex,

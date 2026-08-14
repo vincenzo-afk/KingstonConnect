@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
@@ -26,13 +26,7 @@ export const StudentDashboard: React.FC = () => {
     const [auData, setAuData] = useState<AUStudentData | null>(null);
     const [_loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (user?.register_no) {
-            fetchStudentData();
-        }
-    }, [user]);
-
-    const fetchStudentData = async () => {
+    const fetchStudentData = useCallback(async () => {
         setLoading(true);
         try {
             if (user?.id) {
@@ -46,7 +40,13 @@ export const StudentDashboard: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (user?.rollNumber) {
+            void fetchStudentData();
+        }
+    }, [user?.rollNumber, fetchStudentData]);
 
     // Derived Stats
     const attendanceMetrics = calculateAttendanceMetrics(auData);
@@ -72,7 +72,7 @@ export const StudentDashboard: React.FC = () => {
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div>
                         <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">
-                            Welcome back, {user?.name?.split(' ')[0]}! 👋
+                            Welcome back, {user?.firstName?.split(' ')[0]}! 👋
                         </h1>
                         <p className="text-slate-400 max-w-xl text-lg">
                             You have <span className="text-cyan-400 font-semibold">{pendingAssignments} pending assignments</span> and an upcoming exam in <span className="text-cyan-400 font-semibold">2 days</span>.

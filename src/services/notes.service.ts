@@ -312,7 +312,7 @@ export function subscribeToNotes(
     callback: (notes: Note[]) => void,
     filters: NoteFilter = {}
 ) {
-    let q = query(
+    const q = query(
         collection(db, COLLECTIONS.NOTES),
         where('status', '==', filters.status || 'approved'),
         orderBy('uploadedAt', 'desc'),

@@ -3,7 +3,7 @@ import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores';
 import {
     Users,
     GraduationCap,
@@ -47,7 +47,7 @@ const teachers = [
 
 export const HODDashboard: React.FC = () => {
     const { user } = useAuthStore();
-    const departmentName = user?.department?.name || 'Department';
+    const departmentName = user?.department || 'Department';
 
     return (
         <div className="space-y-6 animate-fade-in">

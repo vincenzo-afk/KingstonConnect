@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores';
 import { sendMessage, setColabUrl, getColabUrl } from '@/services/studygpt.service';
 import {
     Send,
@@ -312,7 +312,7 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                             <Sparkles className="w-10 h-10 text-cyan-400" />
                         </div>
                         <h2 className="text-3xl font-bold text-white mb-3 tracking-tight">
-                            Hello, {user?.name?.split(' ')[0] || 'Student'}! 👋
+                            Hello, {user?.firstName || 'Student'}! 👋
                         </h2>
                         <p className="text-slate-400 max-w-md mb-12 text-lg">
                             I'm here to help you ace your exams. Ask me anything about your subjects, notes, or assignments.
@@ -356,7 +356,7 @@ export const StudyGPTChat: React.FC<StudyGPTChatProps> = ({ className }) => {
                                         <Sparkles className="w-4 h-4 text-white" />
                                     ) : (
                                         <span className="text-xs font-bold text-white">
-                                            {user?.name?.charAt(0) || 'U'}
+                                            {user?.firstName?.charAt(0) || 'U'}
                                         </span>
                                     )}
                                 </div>

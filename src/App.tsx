@@ -42,6 +42,7 @@ const SettingsPage = lazy(() => import('@/pages/Settings'));
 const StudentsPage = lazy(() => import('@/pages/Students'));
 const TeachersPage = lazy(() => import('@/pages/Teachers'));
 const DepartmentsPage = lazy(() => import('@/pages/Departments'));
+const HousingPage = lazy(() => import('@/pages/Housing'));
 
 // =============================================================================
 // LOADING FALLBACK
@@ -142,6 +143,7 @@ const AppRoutes: React.FC = () => {
                     <Route path="/students" element={<StudentsPage />} />
                     <Route path="/teachers" element={<TeachersPage />} />
                     <Route path="/departments" element={<DepartmentsPage />} />
+                    <Route path="/housing" element={<HousingPage />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </Suspense>
