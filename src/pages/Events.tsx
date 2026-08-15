@@ -19,6 +19,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 
 // =============================================================================
 // EVENTS FEED — college events, hackathons, fests & placements
@@ -66,7 +67,7 @@ const isUpcoming = (d: string) => new Date(d + 'T00:00:00') >= new Date(new Date
 
 const EventsPage: React.FC = () => {
     const { user } = useAuthStore();
-    const [events, setEvents] = useState<CollegeEvent[]>([]);
+    const [events, , { add, remove }] = useFirestoreCollection<CollegeEvent>('events');
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState<EventCategory | 'All'>('All');
     const [selected, setSelected] = useState<CollegeEvent | null>(null);
@@ -117,13 +118,13 @@ const EventsPage: React.FC = () => {
             fee: form.fee?.trim() || 'Free',
             featured: form.featured ?? false,
         };
-        setEvents((prev) => [event, ...prev]);
+        void add(event);
         setForm({ category: 'Technical' });
         setShowForm(false);
     };
 
     const removeEvent = (id: string) => {
-        setEvents((prev) => prev.filter((e) => e.id !== id));
+        void remove(id);
         setSelected((prev) => (prev?.id === id ? null : prev));
     };
 

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 // =============================================================================
 // ATTENDANCE STORE — real subject-wise attendance + daily records
@@ -17,7 +16,7 @@ export interface AttendanceSubject {
     total: number;
 }
 
-interface AttendanceRecord {
+export interface AttendanceRecord {
     studentId: string;
     name: string;
     rollNumber: string;
@@ -28,17 +27,6 @@ interface AttendanceRecord {
 interface AttendanceStore {
     subjects: AttendanceSubject[];
     records: AttendanceRecord[];
-    addSubject: (name: string, code: string) => void;
-    removeSubject: (id: string) => void;
-    markClass: (subjectId: string, status: ClassStatus) => void;
-    addRecord: (
-        studentId: string,
-        name: string,
-        rollNumber: string,
-        date: string,
-        status: ClassStatus,
-    ) => void;
-    clearRecords: () => void;
     /** Overall present/total counts across all subjects. */
     overallPresent: number;
     overallTotal: number;
@@ -49,13 +37,56 @@ interface AttendanceStore {
     subjectWise: { name: string; code: string; percentage: number }[];
 }
 
-export const useAttendanceStore = create<AttendanceStore>()(
-    persist(
-        (set, get) => ({
-            subjects: [],
-            records: [],
+// Firestore-backed variant: the Attendance / AttendancePredictor pages drive
+// Firestore mutations (add/update/delete) and call these sync callbacks with
+// the realtime collection snapshot; the store keeps all derived stats.
+interface SyncActions {
+    syncSubjectsFromFirestore: (items: AttendanceSubject[]) => void;
+    syncRecordsFromFirestore: (items: AttendanceRecord[]) => void;
+    addSubjectFire: (name: string, code: string) => void;
+    removeSubjectFire: (id: string) => void;
+    markClassFire: (subjectId: string, status: ClassStatus) => void;
+    addRecordFire: (studentId: string, name: string, rollNumber: string, date: string, status: ClassStatus) => void;
+    clearRecordsFire: () => void;
+}
 
-            addSubject: (name, code) => {
+export const useAttendanceStore = create<AttendanceStore & SyncActions>()(
+    (set, get) => {
+        let fallbackSubjects: AttendanceSubject[] = [];
+        let fallbackRecords: AttendanceRecord[] = [];
+        try {
+            fallbackSubjects = JSON.parse(
+                localStorage.getItem('kingston-attendance-subjects') || '[]'
+            ) as AttendanceSubject[];
+            fallbackRecords = JSON.parse(
+                localStorage.getItem('kingston-attendance-records') || '[]'
+            ) as AttendanceRecord[];
+        } catch {
+            /* ignore */
+        }
+        return {
+            subjects: fallbackSubjects,
+            records: fallbackRecords,
+
+            syncSubjectsFromFirestore: (items) => {
+                set({ subjects: items });
+                try {
+                    localStorage.setItem('kingston-attendance-subjects', JSON.stringify(items));
+                } catch {
+                    /* non-fatal */
+                }
+            },
+
+            syncRecordsFromFirestore: (items) => {
+                set({ records: items });
+                try {
+                    localStorage.setItem('kingston-attendance-records', JSON.stringify(items));
+                } catch {
+                    /* non-fatal */
+                }
+            },
+
+            addSubjectFire: (name, code) => {
                 const exists = get().subjects.some(
                     (s) => s.name.toLowerCase() === name.toLowerCase()
                 );
@@ -74,12 +105,12 @@ export const useAttendanceStore = create<AttendanceStore>()(
                 }));
             },
 
-            removeSubject: (id) =>
+            removeSubjectFire: (id) =>
                 set((state) => ({
                     subjects: state.subjects.filter((s) => s.id !== id),
                 })),
 
-            markClass: (subjectId, status) =>
+            markClassFire: (subjectId, status) =>
                 set((state) => ({
                     subjects: state.subjects.map((s) =>
                         s.id === subjectId
@@ -92,7 +123,7 @@ export const useAttendanceStore = create<AttendanceStore>()(
                     ),
                 })),
 
-            addRecord: (studentId, name, rollNumber, date, status) =>
+            addRecordFire: (studentId, name, rollNumber, date, status) =>
                 set((state) => ({
                     records: [
                         ...state.records,
@@ -100,7 +131,7 @@ export const useAttendanceStore = create<AttendanceStore>()(
                     ],
                 })),
 
-            clearRecords: () => set({ records: [] }),
+            clearRecordsFire: () => set({ records: [] }),
 
             get overallPresent() {
                 return get().subjects.reduce((a, s) => a + s.present, 0);
@@ -139,7 +170,6 @@ export const useAttendanceStore = create<AttendanceStore>()(
                             : 0,
                 }));
             },
-        }),
-        { name: 'kingston-attendance' }
-    )
+        };
+    }
 );

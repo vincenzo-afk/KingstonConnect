@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/stores';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -40,83 +41,56 @@ export interface NoteItem {
 // download what teachers upload during the same session.
 const fileBlobs = new Map<string, Blob>();
 
-const createNotesStore = () => {
-    // A lightweight persisted store via a module-level state + localStorage.
-    // Kept simple (no zustand) so the upload form can stay within this page.
-    const KEY = 'kingston-notes';
-    const listeners = new Set<() => void>();
+// Firestore-backed notes store: realtime across all ~2000 members,
+// with an offline localStorage fallback when Firebase is unreachable.
+const useNotes = () => {
+    const { user } = useAuthStore();
+    const authorName =
+        user?.firstName && user?.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user?.role ?? 'Teacher';
+    const [notes, , { add, update, remove }] = useFirestoreCollection<NoteItem>('notes');
 
-    const read = (): NoteItem[] => {
-        try {
-            return JSON.parse(localStorage.getItem(KEY) || '[]') as NoteItem[];
-        } catch {
-            return [];
-        }
-    };
-
-    let state: NoteItem[] = read();
-
-    const write = (next: NoteItem[]) => {
-        state = next;
-        localStorage.setItem(KEY, JSON.stringify(next));
-        listeners.forEach((l) => l());
-    };
-
-        return {
-        useNotes: () => {
-            // Subscribe to changes using a ref-safe pattern: re-render on store writes.
-            const [, forceUpdate] = useState(0);
-            React.useEffect(() => {
-                const listener = () => forceUpdate((t) => t + 1);
-                listeners.add(listener);
-                return () => {
-                    listeners.delete(listener);
-                };
-            }, []);
-            return {
-                notes: state,
-                addNote: (
-                    note: Omit<
-                        NoteItem,
-                        'id' | 'date' | 'downloads' | 'status' | 'rating'
-                    > & { id?: string }
-                ) =>
-                    write([
-                        {
-                            ...note,
-                            id: note.id ?? `note-${Date.now()}`,
-                            date: new Date().toISOString().split('T')[0],
-                            downloads: 0,
-                            status: 'pending',
-                            rating: 0,
-                        },
-                        ...state,
-                    ]),
-                removeNote: (id: string) =>
-                    write(state.filter((n) => n.id !== id)),
-                incrementDownloads: (id: string) =>
-                    write(
-                        state.map((n) =>
-                            n.id === id
-                                ? { ...n, downloads: n.downloads + 1 }
-                                : n
-                        )
-                    ),
-            };
+    const addNote = useCallback(
+        (note: Omit<NoteItem, 'id' | 'date' | 'downloads' | 'status' | 'rating'> & { id?: string }) => {
+            const noteId = note.id ?? `note-${Date.now()}`;
+            void add({
+                ...note,
+                id: noteId,
+                date: new Date().toISOString().split('T')[0],
+                downloads: 0,
+                status: 'pending',
+                rating: 0,
+                authorId: user?.email ?? 'unknown',
+            } as NoteItem);
+            return noteId;
         },
-    };
-};
+        [add, user]
+    );
 
-const notesStore = createNotesStore();
+    const removeNote = useCallback(
+        (id: string) => void remove(id),
+        [remove]
+    );
+
+    const incrementDownloads = useCallback(
+        (id: string) => {
+            const target = notes.find((n) => n.id === id);
+            if (!target) return;
+            void update(id, { downloads: target.downloads + 1 } as Partial<NoteItem>);
+        },
+        [notes, update]
+    );
+
+    return { notes, addNote, removeNote, incrementDownloads, authorName, user };
+};
 
 // =============================================================================
 // NOTES PAGE
 // =============================================================================
 
 const NotesPage: React.FC = () => {
-    const { user } = useAuthStore();
-    const { notes, addNote, removeNote, incrementDownloads } =
-        notesStore.useNotes();
+    const { notes, addNote, removeNote, incrementDownloads, authorName, user } = useNotes();
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [subjectFilter, setSubjectFilter] = useState<string>('all');
@@ -172,10 +146,7 @@ const NotesPage: React.FC = () => {
             title: title.trim(),
             subject: subject.trim(),
             code: code.trim(),
-            author:
-                user?.firstName && user?.lastName
-                    ? `${user.firstName} ${user.lastName}`
-                    : user?.role ?? 'Teacher',
+            author: authorName,
             size: formatSize(uploadFile.size),
             type: noteType,
             fileName: uploadFile.name,

@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import React from 'react';
+import { db, auth } from '@/lib/firebase';
+import {
+    collection,
+    addDoc,
+    deleteDoc,
+    getDocs,
+    onSnapshot,
+    serverTimestamp,
+} from 'firebase/firestore';
 
 // =============================================================================
 // TYPES — Anna University grading system (R2017/R2021)
@@ -56,6 +65,11 @@ export interface AUResultsState {
     setCrawlStatus: (status: AUResultsState['crawlStatus']) => void;
     recordCrawlAttempt: () => void;
     clearAll: () => void;
+    // Firestore sync (call from page component)
+    useAUSemestersSync: () => void;
+    addSemesterFire: (semester: AUSemester) => Promise<void>;
+    removeSemesterFire: (semester: number) => Promise<void>;
+
     // Computed selectors (pure helpers)
     computeSemesterGPA: (semester: AUSemester) => { gpa: number; creditsEarned: number } | null;
     getCGPA: () => number | null;
@@ -84,8 +98,7 @@ const roundGPA = (value: number): number => parseFloat(value.toFixed(2));
 // =============================================================================
 
 export const useAUResultsStore = create<AUResultsState>()(
-    persist(
-        (set, get) => ({
+    (set, get) => ({
             registerNo: '',
             dateOfBirth: '',
             semesters: [],
@@ -206,11 +219,111 @@ export const useAUResultsStore = create<AUResultsState>()(
                 const max = withAttendance.length * 50;
                 return { totalClasses: max, attended: total, percentage: roundGPA((total / max) * 100) };
             },
-        }),
-        {
-            name: 'kingston-au-results',
-        }
-    )
+
+            // Firestore sync hook: mirrors the per-user `au-results` collection
+            // into local state in realtime. Call once in the AU portal / results page.
+            useAUSemestersSync: () => {
+                const { user } = useSyncAuth();
+                const syncStarted = React.useRef(false);
+                React.useEffect(() => {
+                    if (!user?.email || syncStarted.current) return;
+                    syncStarted.current = true;
+                    const ref = collection(
+                        db,
+                        'users',
+                        user.email,
+                        'au-results'
+                    );
+                    const unsub = onSnapshot(ref, (snap) => {
+                        const sems: AUSemester[] = snap.docs.map((d) => {
+                            const data = d.data();
+                            return {
+                                semester: data.semester as number,
+                                examSession: (data.examSession as string) ?? '',
+                                subjects: (data.subjects as AUSubject[]) ?? [],
+                            };
+                        });
+                        set({
+                            semesters: sems.sort(
+                                (a, b) => a.semester - b.semester
+                            ),
+                        });
+                    });
+                    return () => unsub();
+                }, [user?.email]);
+            },
+
+            // Writes a semester to Firestore and optimistically updates state.
+            addSemesterFire: async (semester) => {
+                const email = auth.currentUser?.email;
+                if (!email) return;
+                set((state) => {
+                    const without = state.semesters.filter(
+                        (s) => s.semester !== semester.semester
+                    );
+                    return {
+                        semesters: [...without, semester].sort(
+                            (a, b) => a.semester - b.semester
+                        ),
+                    };
+                });
+                try {
+                    const ref = collection(
+                        db,
+                        'users',
+                        email,
+                        'au-results'
+                    );
+                    await addDoc(ref, {
+                        semester: semester.semester,
+                        examSession: semester.examSession,
+                        subjects: semester.subjects,
+                        updatedAt: serverTimestamp(),
+                    });
+                } catch {
+                    // Firestore write failed; listener will re-sync the truth.
+                }
+            },
+
+            removeSemesterFire: async (semester) => {
+                const email = auth.currentUser?.email;
+                if (!email) return;
+                set((state) => ({
+                    semesters: state.semesters.filter(
+                        (s) => s.semester !== semester
+                    ),
+                }));
+                try {
+                    const ref = collection(
+                        db,
+                        'users',
+                        email,
+                        'au-results'
+                    );
+                    const snap = await getDocs(ref);
+                    const target = snap.docs.find(
+                        (d) => d.data().semester === semester
+                    );
+                    if (target) await deleteDoc(target.ref);
+                } catch {
+                    // Listener will re-sync.
+                }
+            },
+        })
 );
+
+// Tiny helper so the store can read the auth email without a page-level prop.
+const useSyncAuth = () => {
+    const [authed, setAuthed] = React.useState<{ email: string | null }>({
+        email: auth.currentUser?.email ?? null,
+    });
+    React.useEffect(() => {
+        const unsub = auth.onAuthStateChanged((u) =>
+            setAuthed({ email: u?.email ?? null })
+        );
+        return () => unsub();
+    }, []);
+    return { user: { email: authed.email } };
+};
 
 export default useAUResultsStore;

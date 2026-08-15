@@ -1,0 +1,131 @@
+rules_version = '2';
+
+// KingstonConnect — Firestore security rules
+// Production mode: everything denied by default. Authenticated members read
+// shared college data; staff roles write content; students write notes & chat;
+// personal data (profile, AU results) is self-only.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Staff: teachers, HODs, principals, admins can manage content.
+    function isStaff() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role
+        in ['teacher', 'hod', 'principal', 'admin'];
+    }
+
+    // A student is any signed-in user whose role field is 'student' (or unset).
+    function isStudent() {
+      return isSignedIn() &&
+        (!('role' in get(/databases/$(database)/documents/users/$(request.auth.token.email)).data) ||
+         get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role == 'student');
+    }
+
+    function ownsProfile() {
+      return isSignedIn() && request.auth.token.email == resource.id;
+    }
+
+    // ---------- Users (profiles) ----------
+    // Document id == email. Anyone signed in can look up any profile (needed for
+    // role checks & chat names). Only the owner can update their own profile.
+    match /users/{email} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.token.email == email;
+      allow update: if ownsProfile();
+      allow delete: if false;
+
+      // Per-user AU results subcollection — owner only.
+      match /au-results/{semId} {
+        allow read, write: if isSignedIn() && request.auth.token.email == email;
+      }
+    }
+
+    // ---------- Shared college data ----------
+    // All signed-in members can read everything. Writing content is staff-only,
+    // except notes (any member can share notes) and chat (any member).
+    match /assignments/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /announcements/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /events/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /calendar-events/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /timetable-slots/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /teachers/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /departments/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /students/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    // Attendance: subjects managed by staff; records written by staff only.
+    match /attendance-subjects/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /attendance-records/{id} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    // Notes: any member can share learning notes; only the author can edit/remove theirs.
+    match /notes/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.authorEmail == request.auth.token.email;
+      allow delete: if isSignedIn() && resource.data.authorEmail == request.auth.token.email;
+    }
+
+    // Chat threads: any member can open a thread; staff can delete threads.
+    match /chat-threads/{threadId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isStaff();
+
+      // Messages: any member can send to any thread; only the sender can delete theirs.
+      match /messages/{messageId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow delete: if isSignedIn() && resource.data.senderEmail == request.auth.token.email;
+      }
+    }
+
+    // ---------- Default: deny everything else ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/stores';
 import { useAttendanceStore } from '@/stores/attendanceStore';
+import type { AttendanceRecord } from '@/stores/attendanceStore';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -33,6 +35,20 @@ interface RosterStudent {
 const AttendancePage: React.FC = () => {
     const { user } = useAuthStore();
     const attendance = useAttendanceStore();
+
+    // Firestore realtime mirrors (offline localStorage fallback built in).
+    const [subjItems, , { add: addSubjectToDb }] =
+        useFirestoreCollection<{ id: string; name: string; code: string; present: number; total: number }>('attendance-subjects');
+    const [recordItems, , { add: addRecordToDb }] =
+        useFirestoreCollection<{ id: string; studentId: string; name: string; rollNumber: string; date: string; status: string; authorId?: string }>('attendance-records');
+    React.useEffect(() => {
+        attendance.syncSubjectsFromFirestore(subjItems);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [subjItems]);
+    React.useEffect(() => {
+        attendance.syncRecordsFromFirestore(recordItems as unknown as AttendanceRecord[]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [recordItems]);
     const [selectedDate, setSelectedDate] = useState(
         new Date().toISOString().split('T')[0]
     );
@@ -88,7 +104,17 @@ const AttendancePage: React.FC = () => {
         // Persist today's roster statuses as each student's attendance record
         for (const s of students) {
             if (s.status) {
-                attendance.addRecord(s.id, s.name, s.rollNumber, selectedDate, s.status);
+                const rec = {
+                    id: `rec-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                    studentId: s.id,
+                    name: s.name,
+                    rollNumber: s.rollNumber,
+                    date: selectedDate,
+                    status: s.status,
+                    authorId: user?.email ?? 'unknown',
+                };
+                void addRecordToDb(rec);
+                attendance.addRecordFire(s.id, s.name, s.rollNumber, selectedDate, s.status);
             }
         }
         await new Promise((r) => setTimeout(r, 400));
@@ -99,7 +125,15 @@ const AttendancePage: React.FC = () => {
 
     const addSubject = () => {
         if (!newSubjectName.trim()) return;
-        attendance.addSubject(newSubjectName.trim(), newSubjectCode.trim());
+        attendance.addSubjectFire(newSubjectName.trim(), newSubjectCode.trim());
+        void addSubjectToDb({
+            id: `subj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: newSubjectName.trim(),
+            code: newSubjectCode.trim(),
+            present: 0,
+            total: 0,
+            authorId: user?.email ?? 'unknown',
+        } as { id: string; name: string; code: string; present: number; total: number });
         setNewSubjectName('');
         setNewSubjectCode('');
     };
@@ -205,7 +239,7 @@ const AttendancePage: React.FC = () => {
                                                         type="button"
                                                         aria-label={`Remove ${subject.name}`}
                                                         onClick={() =>
-                                                            attendance.removeSubject(subject.id)
+                                                            attendance.removeSubjectFire(subject.id)
                                                         }
                                                         className="text-slate-500 hover:text-red-400 transition-colors"
                                                     >
@@ -236,7 +270,7 @@ const AttendancePage: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        attendance.markClass(
+                                                        attendance.markClassFire(
                                                             subject.id,
                                                             'present'
                                                         )
@@ -248,7 +282,7 @@ const AttendancePage: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        attendance.markClass(
+                                                        attendance.markClassFire(
                                                             subject.id,
                                                             'absent'
                                                         )
@@ -260,7 +294,7 @@ const AttendancePage: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        attendance.markClass(
+                                                        attendance.markClassFire(
                                                             subject.id,
                                                             'late'
                                                         )

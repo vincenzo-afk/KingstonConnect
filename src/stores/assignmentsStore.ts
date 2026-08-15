@@ -1,9 +1,11 @@
 import type { AssignmentItem } from '@/pages/Assignments';
 
 // =============================================================================
-// ASSIGNMENTS STORE — shared state for the Assignments page and the AI
-// StudyGPT context (buildStudentContext). All entries come from real staff
-// assignments created in-app; no mock data.
+// ASSIGNMENTS STORE — Firestore-backed with offline mirror.
+//
+// The Assignments page uses `subscribeAssignmentsStore` + `getAssignmentsStore`
+// (realtime Firestore mirror, localStorage fallback). The AI StudyGPT context
+// reads the latest known state via the same getters.
 // =============================================================================
 
 const KEY = 'kingston-assignments';
@@ -21,8 +23,17 @@ let state: AssignmentItem[] = read();
 
 const write = (next: AssignmentItem[]) => {
     state = next;
-    localStorage.setItem(KEY, JSON.stringify(next));
+    try {
+        localStorage.setItem(KEY, JSON.stringify(next));
+    } catch {
+        /* quota errors are non-fatal */
+    }
     listeners.forEach((l) => l());
+};
+
+/** Firestore -> local mirror updater, called by the Assignments page hook. */
+export const syncAssignmentsFromFirestore = (items: AssignmentItem[]): void => {
+    write(items);
 };
 
 export const getAssignmentsStore = (): AssignmentItem[] => state;
@@ -34,10 +45,10 @@ export const subscribeAssignmentsStore = (listener: () => void): (() => void) =>
     };
 };
 
-export const addAssignment = (a: Omit<AssignmentItem, 'id' | 'status'>) =>
+export const _addAssignment = (a: Omit<AssignmentItem, 'id' | 'status'>) =>
     write([...state, { ...a, id: `assign-${Date.now()}`, status: 'pending' }]);
 
-export const submitAssignment = (id: string, fileName?: string) =>
+export const _submitAssignment = (id: string, fileName?: string) =>
     write(
         state.map((a) =>
             a.id === id
@@ -58,5 +69,5 @@ export const gradeAssignment = (id: string, grade: number) =>
         )
     );
 
-export const removeAssignment = (id: string) =>
+export const _removeAssignment = (id: string) =>
     write(state.filter((a) => a.id !== id));

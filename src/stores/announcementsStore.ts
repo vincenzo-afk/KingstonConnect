@@ -1,8 +1,12 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 // =============================================================================
-// ANNOUNCEMENTS STORE — real announcements created in-app (no mock data)
+// ANNOUNCEMENTS STORE — Firestore-backed with offline mirror.
+//
+// The Announcements page drives Firestore mutations through addAnnouncement /
+// removeAnnouncement; the Firestore onSnapshot listener authoritative-refreshes
+// the local state. When Firebase is unreachable the page falls back to the
+// localStorage mirror.
 // =============================================================================
 
 export type AnnouncementPriority = 'high' | 'medium' | 'low';
@@ -22,30 +26,28 @@ interface AnnouncementsStore {
     announcements: Announcement[];
     addAnnouncement: (announcement: Omit<Announcement, 'id' | 'date'>) => void;
     removeAnnouncement: (id: string) => void;
+    /** Firestore -> local mirror updater (called from the Announcements page hook). */
+    syncAnnouncementsFromFirestore: (items: Announcement[]) => void;
 }
 
-export const useAnnouncementsStore = create<AnnouncementsStore>()(
-    persist(
-        (set) => ({
-            announcements: [],
-
-            addAnnouncement: (data) =>
-                set((state) => ({
-                    announcements: [
-                        {
-                            ...data,
-                            id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                            date: new Date().toISOString().split('T')[0],
-                        },
-                        ...state.announcements,
-                    ],
-                })),
-
-            removeAnnouncement: (id) =>
-                set((state) => ({
-                    announcements: state.announcements.filter((a) => a.id !== id),
-                })),
-        }),
-        { name: 'kingston-announcements' }
-    )
-);
+export const useAnnouncementsStore = create<AnnouncementsStore>()((set) => {
+    let fallback: Announcement[] = [];
+    try {
+        fallback = JSON.parse(localStorage.getItem('kingston-announcements') || '[]') as Announcement[];
+    } catch {
+        /* ignore */
+    }
+    return {
+        announcements: fallback,
+        addAnnouncement: () => undefined, // replaced by the Firestore-backed call
+        removeAnnouncement: () => undefined,
+        syncAnnouncementsFromFirestore: (items) => {
+            set({ announcements: items });
+            try {
+                localStorage.setItem('kingston-announcements', JSON.stringify(items));
+            } catch {
+                /* non-fatal */
+            }
+        },
+    };
+});

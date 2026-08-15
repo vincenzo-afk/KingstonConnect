@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/stores';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -11,6 +12,7 @@ import { Clock, MapPin, User, Plus, Trash2 } from 'lucide-react';
 
 export interface TimetableSlot {
     id: string;
+    day: string;
     time: string;
     subject: string;
     teacher: string;
@@ -25,80 +27,45 @@ export interface DaySchedule {
 
 interface TimetableStoreState {
     days: DaySchedule[];
-    addSlot: (day: string, slot: Omit<TimetableSlot, 'id'>) => void;
+    addSlot: (day: string, slot: Omit<TimetableSlot, 'id' | 'day'>) => void;
     removeSlot: (day: string, slotId: string) => void;
 }
 
 
-const createTimetableStore = () => {
-    const KEY = 'kingston-timetable';
-    const listeners = new Set<() => void>();
+// Firestore-backed timetable: slots are stored flat with a day field and
+// grouped locally by day. Realtime across all members; offline localStorage
+// fallback when Firebase is unreachable.
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-    const read = (): DaySchedule[] => {
-        try {
-            return JSON.parse(
-                localStorage.getItem(KEY) || '[]'
-            ) as DaySchedule[];
-        } catch {
-            return [];
-        }
-    };
-
-    let state: DaySchedule[] = read();
-
-    const write = (next: DaySchedule[]) => {
-        state = next;
-        localStorage.setItem(KEY, JSON.stringify(next));
-        listeners.forEach((l) => l());
-    };
-
-    return {
-        useTimetable: (): TimetableStoreState => {
-            const [, forceUpdate] = useState(0);
-            React.useEffect(() => {
-                const listener = () => forceUpdate((t) => t + 1);
-                listeners.add(listener);
-                return () => {
-                    listeners.delete(listener);
-                };
-            }, []);
-            return {
-                days: state,
-                addSlot: (day: string, slot: Omit<TimetableSlot, 'id'>) =>
-                    write(
-                        state.map((d) =>
-                            d.day === day
-                                ? {
-                                      ...d,
-                                      slots: [
-                                          ...d.slots,
-                                          { ...slot, id: `slot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
-                                      ],
-                                  }
-                                : d
-                        )
-                    ),
-                removeSlot: (day: string, slotId: string) =>
-                    write(
-                        state
-                            .map((d) =>
-                                d.day === day
-                                    ? {
-                                          ...d,
-                                          slots: d.slots.filter(
-                                              (s) => s.id !== slotId
-                                          ),
-                                      }
-                                    : d
-                            )
-                            .filter((d) => d.slots.length > 0)
-                    ),
-            };
-        },
-    };
+const groupByDay = (slots: TimetableSlot[]): DaySchedule[] => {
+    const byDay = new Map<string, TimetableSlot[]>();
+    for (const s of slots) {
+        if (!byDay.has(s.day)) byDay.set(s.day, []);
+        byDay.get(s.day)!.push(s);
+    }
+    const days: DaySchedule[] = [];
+    for (const day of DAY_ORDER) {
+        const slots = byDay.get(day);
+        if (slots && slots.length > 0) days.push({ day, slots });
+    }
+    return days;
 };
 
-const timetableStore = createTimetableStore();
+const useTimetable = (): TimetableStoreState => {
+    const [slots, , { add, remove }] = useFirestoreCollection<TimetableSlot>('timetable-slots');
+
+    const days = groupByDay(slots);
+
+    const doAddSlot = (day: string, slot: Omit<TimetableSlot, 'id' | 'day'>) => {
+        const id = `slot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        void add({ ...slot, id, day } as TimetableSlot);
+    };
+    const doRemoveSlot = (day: string, slotId: string) => {
+        void day;
+        void remove(slotId);
+    };
+    return { days, addSlot: doAddSlot, removeSlot: doRemoveSlot };
+};
 
 const dayColors: Record<string, { bg: string; border: string; text: string }> = {
     Monday: { bg: 'from-cyan-500/10 to-blue-500/10', border: 'border-cyan-500/20', text: 'text-cyan-400' },
@@ -114,7 +81,7 @@ const dayColors: Record<string, { bg: string; border: string; text: string }> = 
 
 const TimetablePage: React.FC = () => {
     const { user } = useAuthStore();
-    const { days, addSlot, removeSlot } = timetableStore.useTimetable();
+    const { days, addSlot, removeSlot } = useTimetable();
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const todaySchedule = days.find((d) => d.day === today);
     const [openDay, setOpenDay] = useState<string | null>(null);
@@ -131,7 +98,7 @@ const TimetablePage: React.FC = () => {
 
     const handleAddSlot = (day: string) => {
         if (!time || !subject.trim() || !teacher.trim() || !room.trim()) return;
-        addSlot(day, { time, subject: subject.trim(), teacher: teacher.trim(), room: room.trim(), code: code.trim() });
+        addSlot(day, { time, subject: subject.trim(), teacher: teacher.trim(), room: room.trim(), code: code.trim() } as Omit<TimetableSlot, 'id' | 'day'>);
         setTime('');
         setSubject('');
         setTeacher('');

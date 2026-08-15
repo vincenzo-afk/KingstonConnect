@@ -66,6 +66,7 @@ const gradeColor = (grade: string): 'success' | 'warning' | 'error' => {
 const AUPortalPage: React.FC = () => {
     const store = useAUResultsStore();
     const { user } = useAuthStore();
+    store.useAUSemestersSync();
     const [selectedSemester, setSelectedSemester] = useState(
         (user?.semester ?? 5) - 1 || 1
     );
@@ -159,7 +160,7 @@ const AUPortalPage: React.FC = () => {
         if (existing) {
             store.updateSemester(semNo, { subjects: [...subjects], examSession: existing.examSession || `Sem ${semNo} (AU portal)` });
         } else {
-            store.addSemester({ semester: semNo, examSession: `Sem ${semNo} (AU portal)`, subjects });
+            void store.addSemesterFire({ semester: semNo, examSession: `Sem ${semNo} (AU portal)`, subjects });
         }
     };
 
@@ -271,7 +272,7 @@ const AUPortalPage: React.FC = () => {
                 subjects: [...existing.subjects, ...subjects],
             });
         } else {
-            store.addSemester({ semester: selectedSemester, examSession: examSession, subjects });
+            void store.addSemesterFire({ semester: selectedSemester, examSession: examSession, subjects });
         }
         setDrafts([emptyDraft()]);
     };
@@ -730,7 +731,7 @@ const AUPortalPage: React.FC = () => {
                                                     variant="ghost"
                                                     size="sm"
                                                     icon={<Trash2 className="w-3.5 h-3.5" />}
-                                                    onClick={() => store.removeSemester(sem.semester)}
+                                                    onClick={() => { void store.removeSemesterFire(sem.semester); }}
                                                     className="text-slate-500 hover:text-red-400"
                                                 />
                                             </div>

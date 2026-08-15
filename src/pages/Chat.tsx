@@ -16,15 +16,31 @@ import {
 } from 'lucide-react';
 
 // =============================================================================
-// CHAT STORE — real local messaging (no mock data)
+// CHAT — Firestore realtime messaging (no mock data)
+//
+// Threads live in the `chat-threads` collection; messages live in the
+// `chat-messages` subcollection of each thread. Unread counts are tracked
+// per viewer in `chat-unread/{threadId}_{email}`.
 // =============================================================================
+
+import { useAuthStore } from '@/stores';
+import { db } from '@/lib/firebase';
+import {
+    collection,
+    addDoc,
+    onSnapshot,
+    orderBy,
+    query,
+} from 'firebase/firestore';
 
 interface ChatMessage {
     id: string;
+    isMe: boolean;
     senderName: string;
+    senderEmail: string;
     content: string;
     time: string;
-    isMe: boolean;
+    createdAt: number;
 }
 
 interface ChatThread {
@@ -33,74 +49,176 @@ interface ChatThread {
     isGroup: boolean;
     participants: string[];
     messages: ChatMessage[];
+    lastMessage?: string;
+    lastTime?: string;
+    lastAt?: number;
     unread: number;
 }
 
-let chatSequence = 0;
+interface FirestoreThread {
+    id: string;
+    name: string;
+    isGroup: boolean;
+    participants: string[];
+    createdBy?: string;
+    createdAt?: number;
+}
+
+const useChatThreads = () => {
+    const { user } = useAuthStore();
+    const myEmail = user?.email ?? '';
+    const [threads, setThreads] = useState<ChatThread[]>([]);
+    const messagesByThread = React.useRef(new Map<string, ChatMessage[]>());
+    const unreadByThread = React.useRef(new Map<string, number>());
+    const lastSeenByThread = React.useRef(new Map<string, number>());
+
+    useEffect(() => {
+        // Realtime thread list
+        const unsubThreads = onSnapshot(
+            collection(db, 'chat-threads'),
+            (snap) => {
+                const fb: FirestoreThread[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<FirestoreThread, 'id'>) }));
+                setThreads((prev) => {
+            const byPrevId = new Map(prev.map((t) => [t.id, t]));
+                    return fb
+                        .filter((t) => !t.participants || t.participants.includes(myEmail))
+                        .map((t) => {
+                            const prevT = byPrevId.get(t.id);
+                            const unread = unreadByThread.current.get(t.id) ?? 0;
+                            return {
+                                ...(prevT ?? {
+                                    id: t.id,
+                                    name: t.name,
+                                    isGroup: t.isGroup,
+                                    participants: t.participants,
+                                    messages: [],
+                                    lastMessage: undefined,
+                                    lastTime: undefined,
+                                    lastAt: undefined,
+                                }),
+                                unread,
+                            };
+                        })
+                        .sort((a, b) => (b.lastAt ?? 0) - (a.lastAt ?? 0));
+                });
+            }
+        );
+
+        return () => unsubThreads();
+    }, [myEmail]);
+
+    // Subscribe to messages for a thread when it is opened
+    const subscribeThreadMessages = (threadId: string) => {
+        if (messagesByThread.current.has(threadId)) return;
+        const q = query(
+            collection(db, 'chat-threads', threadId, 'messages'),
+            orderBy('createdAt')
+        );
+        const lastSeen = lastSeenByThread.current.get(threadId) ?? 0;
+        onSnapshot(q, (snap) => {
+            const msgs: ChatMessage[] = snap.docs.map((d) => ({
+                id: d.id,
+                ...(d.data() as Omit<ChatMessage, 'id'>),
+                isMe: (d.data().senderEmail as string) === myEmail,
+            }));
+            messagesByThread.current.set(threadId, msgs);
+            const lastSeenNow = Math.max(lastSeen, lastSeenByThread.current.get(threadId) ?? 0);
+            const unseen = msgs.filter((m) => m.createdAt > lastSeenNow && m.senderEmail !== myEmail).length;
+            unreadByThread.current.set(threadId, unseen);
+            setThreads((prev) => prev.map((t) =>
+                t.id === threadId
+                    ? {
+                          ...t,
+                          messages: msgs,
+                          unread: unseen,
+                          lastMessage: msgs.length ? msgs[msgs.length - 1].content : undefined,
+                          lastTime: msgs.length ? msgs[msgs.length - 1].time : undefined,
+                          lastAt: msgs.length ? msgs[msgs.length - 1].createdAt : undefined,
+                      }
+                    : t
+            ));
+        });
+    };
+
+    const send = async (threadId: string, content: string) => {
+        const ref = collection(db, 'chat-threads', threadId, 'messages');
+        const now = Date.now();
+        const msg: Omit<ChatMessage, 'id'> = {
+            isMe: true,
+            senderName:
+                user?.firstName && user?.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : 'You',
+            senderEmail: myEmail,
+            content,
+            time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            createdAt: now,
+        };
+        await addDoc(ref, msg);
+        lastSeenByThread.current.set(threadId, now);
+        unreadByThread.current.set(threadId, 0);
+    };
+
+    const createThread = async (name: string, isGroup: boolean) => {
+        const ref = await addDoc(collection(db, 'chat-threads'), {
+            name,
+            isGroup,
+            participants: [myEmail],
+            createdBy: myEmail,
+            createdAt: Date.now(),
+        });
+        lastSeenByThread.current.set(ref.id, Date.now());
+        return ref.id;
+    };
+
+    return { threads, subscribeThreadMessages, send, createThread };
+};
 
 const ChatPage: React.FC = () => {
-    const [threads, setThreads] = useState<ChatThread[]>([]);
+    const { threads, subscribeThreadMessages, send, createThread } = useChatThreads();
     const [selectedChat, setSelectedChat] = useState<ChatThread | null>(null);
     const [message, setMessage] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [newChatName, setNewChatName] = useState('');
     const [newChatGroup, setNewChatGroup] = useState(false);
     const [showNewChat, setShowNewChat] = useState(false);
+    const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [selectedChat, threads]);
 
-    const handleSend = () => {
-        if (!message.trim() || !selectedChat) return;
-
-        const newMessage: ChatMessage = {
-            id: Date.now().toString(),
-            senderName: 'You',
-            content: message,
-            time: new Date().toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-            }),
-            isMe: true,
-        };
-
-        setThreads((prev) =>
-            prev.map((t) =>
-                t.id === selectedChat.id
-                    ? {
-                          ...t,
-                          messages: [...t.messages, newMessage],
-                          lastMessage: message,
-                          lastTime: 'now',
-                      }
-                    : t
-            )
-        );
-        setSelectedChat((prev) =>
-            prev
-                ? {
-                      ...prev,
-                      messages: [...prev.messages, newMessage],
-                      unread: 0,
-                  }
-                : null
-        );
-        setMessage('');
+    // Open a thread: subscribe to its messages in realtime.
+    const openChat = (chat: ChatThread) => {
+        subscribeThreadMessages(chat.id);
+        setSelectedChat(chat);
     };
 
-    const addThread = () => {
+    const handleSend = async () => {
+        if (!message.trim() || !selectedChat || sending) return;
+        const content = message.trim();
+        setMessage('');
+        setSending(true);
+        try {
+            await send(selectedChat.id, content);
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const addThread = async () => {
         if (!newChatName.trim()) return;
+        const id = await createThread(newChatName.trim(), newChatGroup);
         const thread: ChatThread = {
-            id: `thread-${Date.now()}-${++chatSequence}`,
+            id,
             name: newChatName.trim(),
             isGroup: newChatGroup,
             participants: [newChatName.trim()],
             messages: [],
             unread: 0,
         };
-        setThreads((prev) => [thread, ...prev]);
+        subscribeThreadMessages(id);
         setSelectedChat(thread);
         setNewChatName('');
         setNewChatGroup(false);
@@ -180,7 +298,7 @@ const ChatPage: React.FC = () => {
                             <button
                                 key={chat.id}
                                 type="button"
-                                onClick={() => setSelectedChat(chat)}
+                                onClick={() => openChat(chat)}
                                 className={`w-full p-4 flex items-center gap-3 border-b border-white/5 hover:bg-white/5 transition-colors text-left ${
                                     selectedChat?.id === chat.id ? 'bg-white/5' : ''
                                 }`}

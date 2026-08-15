@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore, type UserRole, type Department } from '@/stores';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Mail, Lock, User, Phone, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Phone, Loader2, AlertCircle } from 'lucide-react';
 
 // =============================================================================
 // REGISTER PAGE
@@ -22,7 +22,7 @@ const RegisterPage: React.FC = () => {
         phone: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const { register, isLoading } = useAuthStore();
+    const { register, isLoading, error, clearError } = useAuthStore();
     const navigate = useNavigate();
 
     const validateEmail = (email: string) => {
@@ -98,6 +98,21 @@ const RegisterPage: React.FC = () => {
                     <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
                     <p className="text-slate-400">Join KingstonConnect</p>
                 </div>
+
+                {/* Firebase error banner (auth/email-already-in-use etc.) */}
+                {error && (
+                    <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                        <p className="text-sm text-red-300 flex-1">{error}</p>
+                        <button
+                            type="button"
+                            onClick={clearError}
+                            className="text-red-400 hover:text-white text-sm shrink-0"
+                        >
+                            ×
+                        </button>
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Name Fields */}

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores';
 import { useAnnouncementsStore } from '@/stores/announcementsStore';
+import type { Announcement } from '@/stores/announcementsStore';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -23,6 +25,24 @@ import {
 const AnnouncementsPage: React.FC = () => {
     const { user } = useAuthStore();
     const store = useAnnouncementsStore();
+    const [items, , { add, remove }] = useFirestoreCollection(
+        'announcements'
+    );
+    useEffect(() => {
+        store.syncAnnouncementsFromFirestore(items as unknown as Announcement[]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [items]);
+
+    const doAdd = (data: Parameters<typeof store.addAnnouncement>[0]) => {
+        const id = `ann-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        void add({
+            ...data,
+            id,
+            date: new Date().toISOString().split('T')[0],
+            authorId: user?.email ?? 'unknown',
+        });
+    };
+    const doRemove = (id: string) => void remove(id);
     const [showForm, setShowForm] = useState(false);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -88,7 +108,7 @@ const AnnouncementsPage: React.FC = () => {
 
     const submit = () => {
         if (!title.trim() || !content.trim()) return;
-        store.addAnnouncement({
+        doAdd({
             title: title.trim(),
             content: content.trim(),
             author:
@@ -316,7 +336,7 @@ const AnnouncementsPage: React.FC = () => {
                                             <button
                                                 type="button"
                                                 onClick={() =>
-                                                    store.removeAnnouncement(
+                                                    doRemove(
                                                         announcement.id
                                                     )
                                                 }

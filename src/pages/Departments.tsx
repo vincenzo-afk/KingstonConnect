@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/stores';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
@@ -27,50 +28,20 @@ export interface DepartmentItem {
     avgAttendance: number;
 }
 
-const createDepartmentsStore = () => {
-    const KEY = 'kingston-departments';
-    const listeners = new Set<() => void>();
+// Firestore-backed department directory: realtime across all members,
+// with an offline localStorage fallback when Firebase is unreachable.
+const useDepartmentsStore = () => {
+    const [departments, , { add, remove }] = useFirestoreCollection<DepartmentItem>('departments');
 
-    const read = (): DepartmentItem[] => {
-        try {
-            return JSON.parse(
-                localStorage.getItem(KEY) || '[]'
-            ) as DepartmentItem[];
-        } catch {
-            return [];
-        }
+    const doAdd = (d: Omit<DepartmentItem, 'id'>) => {
+        const id = `dept-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        void add({ ...d, id } as DepartmentItem);
     };
-
-    let state: DepartmentItem[] = read();
-
-    const write = (next: DepartmentItem[]) => {
-        state = next;
-        localStorage.setItem(KEY, JSON.stringify(next));
-        listeners.forEach((l) => l());
+    const doRemove = (id: string) => {
+        void remove(id);
     };
-
-    return {
-        useDepartments: () => {
-            const [, forceUpdate] = useState(0);
-            React.useEffect(() => {
-                const listener = () => forceUpdate((t) => t + 1);
-                listeners.add(listener);
-                return () => {
-                    listeners.delete(listener);
-                };
-            }, []);
-            return {
-                departments: state,
-                addDepartment: (d: Omit<DepartmentItem, 'id'>) =>
-                    write([...state, { ...d, id: `dept-${Date.now()}` }]),
-                removeDepartment: (id: string) =>
-                    write(state.filter((d) => d.id !== id)),
-            };
-        },
-    };
+    return { departments, addDepartment: doAdd, removeDepartment: doRemove };
 };
-
-const departmentsStore = createDepartmentsStore();
 
 const departmentColors: Record<string, { bg: string; gradient: string; text: string }> = {
     CSE: { bg: 'from-cyan-500/20 to-blue-500/20', gradient: 'from-cyan-500 to-blue-500', text: 'text-cyan-400' },
@@ -93,7 +64,7 @@ const defaultColors = [
 const DepartmentsPage: React.FC = () => {
     const { user } = useAuthStore();
     const { departments, addDepartment, removeDepartment } =
-        departmentsStore.useDepartments();
+        useDepartmentsStore();
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState<Partial<DepartmentItem>>({});
 

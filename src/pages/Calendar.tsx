@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/stores';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -33,53 +34,20 @@ interface CalendarStoreState {
     removeEvent: (id: string) => void;
 }
 
-const createCalendarStore = () => {
-    const KEY = 'kingston-calendar-events';
-    const listeners = new Set<() => void>();
+// Firestore-backed calendar events: realtime across all members,
+// with an offline localStorage fallback when Firebase is unreachable.
+const useCalendarEvents = (): CalendarStoreState => {
+    const [events, , { add, remove }] = useFirestoreCollection<CalendarEvent>('calendar-events');
 
-    const read = (): CalendarEvent[] => {
-        try {
-            return JSON.parse(
-                localStorage.getItem(KEY) || '[]'
-            ) as CalendarEvent[];
-        } catch {
-            return [];
-        }
+    const doAdd = (event: Omit<CalendarEvent, 'id'>) => {
+        const id = `cal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        void add({ ...event, id } as CalendarEvent);
     };
-
-    let state: CalendarEvent[] = read();
-
-    const write = (next: CalendarEvent[]) => {
-        state = next;
-        localStorage.setItem(KEY, JSON.stringify(next));
-        listeners.forEach((l) => l());
+    const doRemove = (id: string) => {
+        void remove(id);
     };
-
-    return {
-        useEvents: (): CalendarStoreState => {
-            const [, forceUpdate] = useState(0);
-            React.useEffect(() => {
-                const listener = () => forceUpdate((t) => t + 1);
-                listeners.add(listener);
-                return () => {
-                    listeners.delete(listener);
-                };
-            }, []);
-            return {
-                events: state,
-                addEvent: (event: Omit<CalendarEvent, 'id'>) =>
-                    write([
-                        { ...event, id: `cal-${Date.now()}` },
-                        ...state,
-                    ]),
-                removeEvent: (id: string) =>
-                    write(state.filter((e) => e.id !== id)),
-            };
-        },
-    };
+    return { events, addEvent: doAdd, removeEvent: doRemove };
 };
-
-const calendarStore = createCalendarStore();
 
 // =============================================================================
 // CALENDAR PAGE
@@ -87,7 +55,7 @@ const calendarStore = createCalendarStore();
 
 const CalendarPage: React.FC = () => {
     const { user } = useAuthStore();
-    const { events, addEvent, removeEvent } = calendarStore.useEvents();
+    const { events, addEvent, removeEvent } = useCalendarEvents();
     const [showForm, setShowForm] = useState(false);
     const [title, setTitle] = useState('');
     const [date, setDate] = useState('');

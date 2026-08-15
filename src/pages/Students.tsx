@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/stores';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -24,50 +25,20 @@ export interface StudentItem {
     status: 'active' | 'at-risk';
 }
 
-const createStudentsStore = () => {
-    const KEY = 'kingston-students';
-    const listeners = new Set<() => void>();
+// Firestore-backed student directory: realtime across all members,
+// with an offline localStorage fallback when Firebase is unreachable.
+const useStudentsStore = () => {
+    const [students, , { add, remove }] = useFirestoreCollection<StudentItem>('students');
 
-    const read = (): StudentItem[] => {
-        try {
-            return JSON.parse(
-                localStorage.getItem(KEY) || '[]'
-            ) as StudentItem[];
-        } catch {
-            return [];
-        }
+    const doAdd = (s: Omit<StudentItem, 'id'>) => {
+        const id = `stu-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        void add({ ...s, id } as StudentItem);
     };
-
-    let state: StudentItem[] = read();
-
-    const write = (next: StudentItem[]) => {
-        state = next;
-        localStorage.setItem(KEY, JSON.stringify(next));
-        listeners.forEach((l) => l());
+    const doRemove = (id: string) => {
+        void remove(id);
     };
-
-    return {
-        useStudents: () => {
-            const [, forceUpdate] = useState(0);
-            React.useEffect(() => {
-                const listener = () => forceUpdate((t) => t + 1);
-                listeners.add(listener);
-                return () => {
-                    listeners.delete(listener);
-                };
-            }, []);
-            return {
-                students: state,
-                addStudent: (s: Omit<StudentItem, 'id'>) =>
-                    write([...state, { ...s, id: `stu-${Date.now()}` }]),
-                removeStudent: (id: string) =>
-                    write(state.filter((s) => s.id !== id)),
-            };
-        },
-    };
+    return { students, addStudent: doAdd, removeStudent: doRemove };
 };
-
-const studentsStore = createStudentsStore();
 
 // =============================================================================
 // STUDENTS PAGE
@@ -75,7 +46,7 @@ const studentsStore = createStudentsStore();
 
 const StudentsPage: React.FC = () => {
     const { user } = useAuthStore();
-    const { students, addStudent, removeStudent } = studentsStore.useStudents();
+    const { students, addStudent, removeStudent } = useStudentsStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [sectionFilter, setSectionFilter] = useState<string>('all');
     const [showForm, setShowForm] = useState(false);

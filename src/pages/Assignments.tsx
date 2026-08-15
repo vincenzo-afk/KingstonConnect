@@ -15,13 +15,11 @@ import {
     Trash2,
 } from 'lucide-react';
 import {
-    addAssignment,
-    gradeAssignment,
     getAssignmentsStore,
-    removeAssignment,
-    submitAssignment,
     subscribeAssignmentsStore,
+    syncAssignmentsFromFirestore,
 } from '@/stores/assignmentsStore';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 
 
 // =============================================================================
@@ -43,18 +41,44 @@ export interface AssignmentItem {
 }
 
 const useAssignments = () => {
+    // Firestore mirror: realtime across all members; offline localStorage fallback.
+    const [items, , { add, update, remove }] = useFirestoreCollection<AssignmentItem>('assignments');
+    React.useEffect(() => {
+        syncAssignmentsFromFirestore(items);
+    }, [items]);
     const [assignments, setAssignments] = useState<AssignmentItem[]>(() =>
         getAssignmentsStore()
     );
     React.useEffect(() => {
         return subscribeAssignmentsStore(() => setAssignments(getAssignmentsStore()));
     }, []);
+
+    // Mutations write to Firestore (authoritative) and the listener mirrors back.
+    const doAdd = (a: Omit<AssignmentItem, 'id' | 'status'>) =>
+        void add({ ...a, id: `assign-${Date.now()}`, status: 'pending' } as AssignmentItem);
+    const doSubmit = (id: string, fileName?: string) => {
+        const target = getAssignmentsStore().find((x) => x.id === id);
+        if (!target) return;
+        void update(id, {
+            ...target,
+            status: 'submitted' as const,
+            submittedAt: new Date().toISOString(),
+            submittedFile: fileName,
+        });
+    };
+    const doGrade = (id: string, grade: number) => {
+        const target = getAssignmentsStore().find((x) => x.id === id);
+        if (!target) return;
+        void update(id, { ...target, status: 'graded' as const, grade } as AssignmentItem);
+    };
+    const doRemove = (id: string) => void remove(id);
+
     return {
         assignments,
-        addAssignment,
-        submitAssignment,
-        gradeAssignment,
-        removeAssignment,
+        addAssignment: doAdd,
+        submitAssignment: doSubmit,
+        gradeAssignment: doGrade,
+        removeAssignment: doRemove,
     };
 };
 

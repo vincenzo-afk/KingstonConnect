@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '@/stores';
+import { useFirestoreCollection } from '@/hooks/useFirestoreCollection';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -31,50 +32,20 @@ export interface TeacherItem {
     publications: number;
 }
 
-const createTeachersStore = () => {
-    const KEY = 'kingston-teachers';
-    const listeners = new Set<() => void>();
+// Firestore-backed faculty directory: realtime across all members,
+// with an offline localStorage fallback when Firebase is unreachable.
+const useTeachersStore = () => {
+    const [teachers, , { add, remove }] = useFirestoreCollection<TeacherItem>('teachers');
 
-    const read = (): TeacherItem[] => {
-        try {
-            return JSON.parse(
-                localStorage.getItem(KEY) || '[]'
-            ) as TeacherItem[];
-        } catch {
-            return [];
-        }
+    const doAdd = (t: Omit<TeacherItem, 'id'>) => {
+        const id = `tch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        void add({ ...t, id } as TeacherItem);
     };
-
-    let state: TeacherItem[] = read();
-
-    const write = (next: TeacherItem[]) => {
-        state = next;
-        localStorage.setItem(KEY, JSON.stringify(next));
-        listeners.forEach((l) => l());
+    const doRemove = (id: string) => {
+        void remove(id);
     };
-
-    return {
-        useTeachers: () => {
-            const [, forceUpdate] = useState(0);
-            React.useEffect(() => {
-                const listener = () => forceUpdate((t) => t + 1);
-                listeners.add(listener);
-                return () => {
-                    listeners.delete(listener);
-                };
-            }, []);
-            return {
-                teachers: state,
-                addTeacher: (t: Omit<TeacherItem, 'id'>) =>
-                    write([...state, { ...t, id: `tch-${Date.now()}` }]),
-                removeTeacher: (id: string) =>
-                    write(state.filter((t) => t.id !== id)),
-            };
-        },
-    };
+    return { teachers, addTeacher: doAdd, removeTeacher: doRemove };
 };
-
-const teachersStore = createTeachersStore();
 
 // =============================================================================
 // TEACHERS PAGE
@@ -82,7 +53,7 @@ const teachersStore = createTeachersStore();
 
 const TeachersPage: React.FC = () => {
     const { user } = useAuthStore();
-    const { teachers, addTeacher, removeTeacher } = teachersStore.useTeachers();
+    const { teachers, addTeacher, removeTeacher } = useTeachersStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState<Partial<TeacherItem>>({});
